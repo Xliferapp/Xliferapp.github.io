@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Xlifer – Nastavitve profila</title>
+  <meta name="description" content="Nastavitev profila: ime, profilna slika, rojstni datum, bio in družbena omrežja. Shranjeno v Firebase (Auth/Firestore/Storage)." />
+  <link rel="icon" href="/favicon.ico" />
+  <style>
+    :root{
+      --bg:#0b0f14; --surface:#0f172a; --card:#0f172acc; --text:#e5e7eb; --muted:#9ca3af; --brand:#60a5fa; --brand-2:#34d399; --danger:#ef4444; --ok:#22c55e;
+      --ring:0 0 0 3px rgba(96,165,250,.35);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0; font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; background:radial-gradient(1200px 800px at 80% -10%, #1f2937 0%, transparent 60%), var(--bg); color:var(--text)}
+    a{color:inherit; text-decoration:none}
+    header{position:sticky; top:0; z-index:10; backdrop-filter:saturate(160%) blur(10px); background:#0b0f1499; border-bottom:1px solid #1f2937}
+    header .inner{display:flex; align-items:center; justify-content:space-between; height:64px; padding:0 20px}
+    .logo{display:flex; gap:.6rem; align-items:center; font-weight:800}
+    .logo-mark{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--brand),var(--brand-2)); box-shadow:0 6px 18px rgba(52,211,153,.35)}
+    .container{max-width:980px; margin:0 auto; padding:24px}
+    .card{background:var(--card); border:1px solid #1f2937; border-radius:18px; box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    .grid{display:grid; grid-template-columns:1.15fr .85fr; gap:20px}
+    @media (max-width: 920px){ .grid{grid-template-columns:1fr} }
+
+    .step{display:flex; align-items:center; gap:10px; margin:14px 0 6px}
+    .step .dot{width:10px; height:10px; border-radius:999px; background:linear-gradient(135deg,var(--brand),var(--brand-2))}
+    h1{font-size:clamp(24px,3.6vw,36px); margin:6px 0 0}
+    p.lead{color:#cbd5e1; margin:4px 0 18px}
+
+    form{display:grid; gap:16px}
+    .row{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+    @media (max-width:720px){ .row{grid-template-columns:1fr} }
+
+    label{display:block; font-size:.9rem; color:var(--muted); margin:6px 0}
+    input[type="text"], input[type="url"], input[type="date"], textarea{width:100%; padding:.9rem 1rem; border-radius:12px; border:1px solid #1f2937; background:#0f172a; color:var(--text)}
+    input:focus, textarea:focus{outline:none; box-shadow:var(--ring); border-color:#3b82f6}
+    textarea{min-height:120px; resize:vertical}
+
+    .uploader{border:1px dashed #334155; border-radius:16px; padding:14px; background:#0b1222; display:flex; gap:14px; align-items:center}
+    .avatar{width:112px; height:112px; border-radius:18px; background:#0f172a; border:1px solid #1f2937; display:grid; place-items:center; overflow:hidden}
+    .avatar img{width:100%; height:100%; object-fit:cover}
+    .btn{appearance:none; border:0; border-radius:14px; padding:.8rem 1.1rem; font-weight:800; cursor:pointer; transition:.25s transform, .25s box-shadow, .25s background;
+      background:linear-gradient(180deg,var(--brand),#2563eb); color:white; box-shadow:0 8px 24px rgba(37,99,235,.35)}
+    .btn:hover{transform:translateY(-1px)}
+    .btn.secondary{background:#1f2937; color:#e5e7eb}
+    .btn.ghost{background:transparent; border:1px dashed #334155; color:#cbd5e1}
+    .actions{display:flex; gap:12px; align-items:center; flex-wrap:wrap}
+    .muted{color:var(--muted)}
+    .error{color:var(--danger); font-weight:600}
+    .ok{color:var(--ok); font-weight:600}
+
+    .panel{padding:18px}
+    .right .panel{height:100%}
+    .list{display:grid; gap:10px}
+    .hint{font-size:.9rem; color:#a1a1aa}
+    .progress{height:10px; background:#0f172a; border:1px solid #1f2937; border-radius:999px; overflow:hidden}
+    .bar{height:100%; width:0%; background:linear-gradient(90deg,var(--brand),var(--brand-2)); transition:width .2s}
+
+    .guard{display:none; align-items:center; justify-content:center; min-height:40vh}
+    .guard.active{display:flex}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="inner">
+      <div class="logo"><div class="logo-mark"></div><span>Xlifer</span></div>
+      <div class="muted" id="whoami">Prijava…</div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="step"><span class="dot"></span><span>Korak 2/2</span></div>
+    <h1>Nastavitve profila</h1>
+    <p class="lead">Uredi svoje podatke. Ta zaslon deluje za <strong>vsakega prijavljenega uporabnika</strong> (tudi partnerja), ker shranjuje v njegov <em>osebni</em> profil.</p>
+
+    <div id="guard" class="guard">
+      <div class="card panel" style="max-width:560px; text-align:center">
+        <h3>Najprej se prijavi</h3>
+        <p class="hint">Nismo našli aktivne seje. To se zgodi, če je konfiguracija Firebase drugačna kot na prijavni strani, ali če domena ni dodana v “Authorized domains”.</p>
+        <div class="actions" style="justify-content:center">
+          <a class="btn" href="/">Nazaj na prijavo</a>
+          <button id="retryAuth" class="btn secondary" type="button">Poskusi znova</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="content" style="display:none">
+      <div class="grid">
+        <section class="left card panel">
+          <form id="profileForm" novalidate>
+            <div class="uploader" id="dropZone">
+              <div class="avatar" aria-live="polite">
+                <img id="avatarPreview" alt="Predogled profilne slike" hidden />
+                <span id="avatarPlaceholder" class="muted">Brez slike</span>
+              </div>
+              <div>
+                <label for="avatarFile">Profilna slika</label>
+                <input id="avatarFile" type="file" accept="image/*" />
+                <div class="hint">Povleci in spusti sliko sem ali izberi datoteko. Shranjeno v Firebase Storage.</div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div>
+                <label for="displayName">Ime / prikazno ime</label>
+                <input id="displayName" type="text" placeholder="npr. Denis" autocomplete="name" />
+              </div>
+              <div>
+                <label for="dob">Datum rojstva</label>
+                <input id="dob" type="date" />
+              </div>
+            </div>
+
+            <div>
+              <label for="bio">Bio</label>
+              <textarea id="bio" placeholder="Kratek opis o tebi…"></textarea>
+            </div>
+
+            <div class="row">
+              <div>
+                <label for="website">Spletna stran</label>
+                <input id="website" type="url" placeholder="https://primer.si" />
+              </div>
+              <div>
+                <label for="instagram">Instagram</label>
+                <input id="instagram" type="text" placeholder="@tvoj_ig ali URL" />
+              </div>
+            </div>
+            <div class="row">
+              <div>
+                <label for="facebook">Facebook</label>
+                <input id="facebook" type="text" placeholder="profil ali URL" />
+              </div>
+              <div>
+                <label for="snapchat">Snapchat</label>
+                <input id="snapchat" type="text" placeholder="@snap_uporabnik" />
+              </div>
+            </div>
+
+            <div class="progress" aria-hidden="true" hidden id="uploadProgress">
+              <div class="bar" id="uploadBar"></div>
+            </div>
+
+            <div class="actions">
+              <button class="btn" type="submit">Shrani in nadaljuj</button>
+              <a class="btn ghost" href="/xliferpage.html">Preskoči za zdaj</a>
+              <span id="formMsg" class="muted"></span>
+            </div>
+            <div id="formError" class="error"></div>
+          </form>
+        </section>
+
+        <aside class="right card panel">
+          <h3>Namigi</h3>
+          <div class="list">
+            <p class="hint">Če si že povezan v <strong>par</strong>, ta zaslon ureja <em>tvoje</em> podatke; partner bo videl svoj lastni zaslon, ko se prijavi.</p>
+            <p class="hint">Instagram/Facebook/Snapchat vnosi sprejmejo <em>uporabniško ime</em> ali celoten URL – normaliziramo v prave povezave.</p>
+            <p class="hint">Če te nepričakovano odjavi, preveri: <em>isti Firebase projekt</em> na vseh straneh in <em>Authorized domains</em> v Firebase Auth.</p>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+    import { getAuth, onAuthStateChanged, updateProfile, setPersistence, browserLocalPersistence } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+    import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+    import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
+
+    // 🔧 Uporabi ISTO konfiguracijo kot na prijavni strani (tu že vnesem tvojo iz primera)
+    const firebaseConfig = {
+      apiKey: 'AIzaSyCaKT0CCg1xNJanG4-6Pox2UaH_1rSL3M0',
+      authDomain: 'chater2-fc480.firebaseapp.com',
+      databaseURL: 'https://chater2-fc480-default-rtdb.firebaseio.com',
+      projectId: 'chater2-fc480',
+      storageBucket: 'chater2-fc480.firebasestorage.app',
+      messagingSenderId: '623092508370',
+      appId: '1:623092508370:web:08cf5d58c6edcfac096f0b',
+      measurementId: 'G-5W40WP5YEG'
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+
+    // --- Elements ---
+    const whoami = document.getElementById('whoami');
+    const content = document.getElementById('content');
+    const guard = document.getElementById('guard');
+    const retryAuth = document.getElementById('retryAuth');
+
+    const form = document.getElementById('profileForm');
+    const formMsg = document.getElementById('formMsg');
+    const formError = document.getElementById('formError');
+
+    const dropZone = document.getElementById('dropZone');
+    const avatarFile = document.getElementById('avatarFile');
+    const avatarPreview = document.getElementById('avatarPreview');
+    const avatarPlaceholder = document.getElementById('avatarPlaceholder');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const uploadBar = document.getElementById('uploadBar');
+
+    const displayName = document.getElementById('displayName');
+    const dob = document.getElementById('dob');
+    const bio = document.getElementById('bio');
+    const website = document.getElementById('website');
+    const instagram = document.getElementById('instagram');
+    const facebook = document.getElementById('facebook');
+    const snapchat = document.getElementById('snapchat');
+
+    // --- Auth session naj bo persistent ---
+    await setPersistence(auth, browserLocalPersistence);
+
+    function normLink(value, type){
+      const v = (value||'').trim();
+      if(!v) return '';
+      if(type==='instagram'){
+        if(v.startsWith('http')) return v;
+        const handle = v.replace(/^@/, '');
+        return `https://instagram.com/${handle}`;
+      }
+      if(type==='facebook'){
+        if(v.startsWith('http')) return v;
+        return `https://facebook.com/${v}`;
+      }
+      if(type==='snapchat'){
+        if(v.startsWith('http')) return v;
+        const handle = v.replace(/^@/, '');
+        return `https://www.snapchat.com/add/${handle}`;
+      }
+      if(type==='website'){
+        if(v.startsWith('http')) return v; return `https://${v}`;
+      }
+      return v;
+    }
+
+    function showAvatar(url){
+      if(url){
+        avatarPreview.src = url; avatarPreview.hidden = false; avatarPlaceholder.hidden = true;
+      } else {
+        avatarPreview.hidden = true; avatarPlaceholder.hidden = false;
+      }
+    }
+
+    async function loadProfile(user){
+      whoami.textContent = user.email || user.displayName || user.uid;
+      displayName.value = user.displayName || '';
+      showAvatar(user.photoURL);
+
+      const snap = await getDoc(doc(db,'profiles', user.uid));
+      if(snap.exists()){
+        const p = snap.data();
+        if(p.dob) dob.value = p.dob;
+        if(p.bio) bio.value = p.bio;
+        if(p.links){
+          website.value = p.links.website||'';
+          instagram.value = p.links.instagram||'';
+          facebook.value = p.links.facebook||'';
+          snapchat.value = p.links.snapchat||'';
+        }
+      }
+    }
+
+    onAuthStateChanged(auth, async (user)=>{
+      if(!user){
+        // Ne preusmeri takoj – prijazen guard
+        guard.classList.add('active');
+        content.style.display = 'none';
+        return;
+      }
+      guard.classList.remove('active');
+      content.style.display = 'block';
+      await loadProfile(user);
+    });
+
+    retryAuth?.addEventListener('click', ()=> location.reload());
+
+    // Drag & drop
+    ;['dragenter','dragover'].forEach(evt=> dropZone.addEventListener(evt, (e)=>{ e.preventDefault(); dropZone.style.borderColor = '#60a5fa'; }));
+    ;['dragleave','drop'].forEach(evt=> dropZone.addEventListener(evt, (e)=>{ e.preventDefault(); dropZone.style.borderColor = '#334155'; }));
+    dropZone.addEventListener('drop', (e)=>{
+      const f = e.dataTransfer.files?.[0]; if(f){ avatarFile.files = e.dataTransfer.files; const url = URL.createObjectURL(f); showAvatar(url); }
+    });
+
+    avatarFile.addEventListener('change', ()=>{
+      const f = avatarFile.files?.[0];
+      if(f){ const url = URL.createObjectURL(f); showAvatar(url); }
+    });
+
+    async function uploadAvatar(user){
+      const f = avatarFile.files?.[0];
+      if(!f) return null;
+      const r = ref(storage, `avatars/${user.uid}/${Date.now()}_${f.name}`);
+      return new Promise((resolve,reject)=>{
+        uploadProgress.hidden = false; uploadBar.style.width = '0%';
+        const task = uploadBytesResumable(r, f, { contentType: f.type });
+        task.on('state_changed', (snap)=>{
+          const pct = Math.round((snap.bytesTransferred/snap.totalBytes)*100);
+          uploadBar.style.width = pct + '%';
+        }, reject, async ()=>{
+          const url = await getDownloadURL(task.snapshot.ref);
+          uploadProgress.hidden = true;
+          resolve(url);
+        });
+      });
+    }
+
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault(); formError.textContent=''; formMsg.textContent='';
+      const user = auth.currentUser; if(!user){ formError.textContent = 'Ni aktivne seje.'; return; }
+      try{
+        const photoURL = await uploadAvatar(user) || user.photoURL || '';
+        await updateProfile(user, { displayName: displayName.value.trim() || user.displayName || '', photoURL: photoURL || null });
+        const links = {
+          website: normLink(website.value, 'website'),
+          instagram: normLink(instagram.value, 'instagram'),
+          facebook: normLink(facebook.value, 'facebook'),
+          snapchat: normLink(snapchat.value, 'snapchat'),
+        };
+        await setDoc(doc(db,'profiles', user.uid), {
+          username: user.displayName || null,
+          email: user.email || null,
+          photoURL: photoURL || null,
+          dob: dob.value || null,
+          bio: bio.value || '',
+          links,
+          updatedAt: Date.now()
+        }, { merge:true });
+        formMsg.textContent = 'Shranjeno ✔';
+        setTimeout(()=>{ location.href = '/xliferpage.html'; }, 700);
+      }catch(err){
+        console.error(err);
+        formError.textContent = err?.message || 'Napaka pri shranjevanju.';
+      }
+    });
+  </script>
+</body>
+</html>

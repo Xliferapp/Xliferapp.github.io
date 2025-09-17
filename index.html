@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Xlifer – skupaj, a vsak s svojim prostorom</title>
+  <meta name="description" content="Xlifer je spletna aplikacija za pare in prijatelje. Poleg 1:1 klepetov omogoča tudi skupinske pogovore, pošiljanje slik ter gledanje objav in zgodb. Ustvari skupni parski prostor in hkrati ohrani svoj osebni pogled." />
+  <link rel="icon" href="/favicon.ico" />
+  <style>
+    :root{
+      --bg:#0b0f14; --card:#111827cc; --text:#e5e7eb; --muted:#9ca3af; --brand:#60a5fa; --brand-2:#34d399; --danger:#ef4444;
+      --ring: 0 0 0 3px rgba(96,165,250,.35);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;}
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+      color:var(--text); background: radial-gradient(1200px 800px at 80% -10%, #1f2937 0%, transparent 60%), radial-gradient(1000px 700px at -10% 10%, #0ea5e9 0%, transparent 60%), var(--bg);
+      line-height:1.6; overflow-x:hidden;
+    }
+    a{color:inherit; text-decoration:none}
+    .container{max-width:1200px; margin:0 auto; padding:0 20px}
+
+    /* Topbar */
+    .topbar{position:sticky; top:0; z-index:50; backdrop-filter:saturate(160%) blur(10px); background:#0b0f1499; border-bottom:1px solid #1f2937;}
+    .topbar-inner{display:flex; align-items:center; justify-content:space-between; height:64px}
+    .logo{display:flex; align-items:center; gap:.6rem; font-weight:700; letter-spacing:.2px}
+    .logo-mark{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--brand),var(--brand-2)); box-shadow:0 6px 18px rgba(52,211,153,.35)}
+    .nav{display:flex; gap:1rem; align-items:center}
+    .nav a{color:var(--muted); font-weight:600; font-size:.95rem}
+    .nav a:hover{color:var(--text)}
+    .btn{appearance:none; border:0; border-radius:14px; padding:.6rem .95rem; font-weight:700; cursor:pointer; transition:.25s transform, .25s box-shadow, .25s background;
+      background:linear-gradient(180deg,var(--brand),#2563eb); color:white; box-shadow:0 8px 24px rgba(37,99,235,.35)}
+    .btn:hover{transform:translateY(-1px)}
+
+    /* Auth panel (collapsible banner) */
+    .auth-panel{display:none; background:#111827; padding:1rem; border-bottom:1px solid #1f2937}
+    .auth-panel.active{display:block}
+    .auth-content{padding:6px 0}
+    .form{display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:end}
+    .form .col-span-2{grid-column:1 / -1}
+    label{display:block; font-size:.9rem; color:var(--muted); margin:4px 0}
+    input[type="text"], input[type="email"], input[type="password"]{width:100%; padding:.8rem 1rem; border-radius:10px; border:1px solid #1f2937; background:#0f172a; color:var(--text)}
+    input:focus{outline:none; box-shadow:var(--ring); border-color:#3b82f6}
+    .inline{display:flex; align-items:center; gap:10px}
+    .switch{position:relative; width:52px; height:28px; background:#374151; border-radius:999px; cursor:pointer; transition:.2s}
+    .thumb{position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:999px; background:white; transition:.2s}
+    .switch.active{background:linear-gradient(90deg,var(--brand),var(--brand-2))}
+    .switch.active .thumb{left:27px}
+    .hint{font-size:.85rem; color:var(--muted)}
+    .error{color:var(--danger); font-size:.9rem}
+
+    /* Hero */
+    .hero{padding:56px 0 24px}
+    .hero-grid{display:grid; grid-template-columns:1.35fr 1fr; gap:24px; align-items:center}
+    .headline{font-size:clamp(28px, 5vw, 56px); line-height:1.05; font-weight:900}
+    .sub{font-size:clamp(16px, 2.2vw, 20px); color:#cbd5e1}
+    .card{background:var(--card); border:1px solid #1f2937; border-radius:16px; padding:18px; box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    .points{display:grid; gap:10px; margin-top:8px}
+    .point{display:flex; gap:10px; align-items:flex-start}
+    .badge{flex:0 0 26px; height:26px; border-radius:9px; background:linear-gradient(135deg,var(--brand),var(--brand-2)); display:grid; place-items:center; font-weight:800}
+
+    /* Sections */
+    section{padding:40px 0}
+    .features{display:grid; grid-template-columns:repeat(3,1fr); gap:18px}
+    .feature{background:var(--card); border:1px solid #1f2937; border-radius:16px; padding:16px}
+    .feature h3{margin:.2rem 0}
+
+    /* Footer */
+    footer{border-top:1px solid #1f2937; color:#94a3b8; padding:26px 0; font-size:.92rem}
+
+    /* Responsive */
+    @media (max-width: 960px){
+      .form{grid-template-columns:1fr}
+      .hero-grid{grid-template-columns:1fr}
+      .features{grid-template-columns:1fr}
+      .nav{gap:.5rem}
+    }
+  </style>
+</head>
+<body>
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="logo">
+        <div class="logo-mark" aria-hidden="true"></div>
+        <a href="#home" aria-label="Xlifer – domov">Xlifer</a>
+      </div>
+      <nav class="nav" aria-label="Primarna navigacija">
+        <a href="#kako-deluje">Kako deluje</a>
+        <a href="#kaj-omogoca">Kaj omogoča</a>
+        <a href="#zasebnost">Zasebnost</a>
+        <button id="regBtn" class="btn" type="button">Registracija</button>
+        <button id="logBtn" class="btn" style="background:linear-gradient(180deg,var(--brand-2),#059669)" type="button">Prijava</button>
+      </nav>
+    </div>
+  </header>
+
+
+
+  <!-- Registracija -->
+  <div id="regPanel" class="auth-panel">
+    <div class="container">
+      <h2>Registracija</h2>
+      <form id="regForm" class="form">
+        <div>
+          <label for="regEmail">E‑pošta</label>
+          <input id="regEmail" type="email" required autocomplete="email">
+        </div>
+        <div>
+          <label for="regUsername">Uporabniško ime</label>
+          <input id="regUsername" type="text" required minlength="3" maxlength="24" pattern="^[a-zA-Z0-9_.\-]{3,24}$" autocomplete="username">
+        </div>
+        <div class="col-span-2">
+          <label for="regPassword">Geslo</label>
+          <input id="regPassword" type="password" required minlength="6" autocomplete="new-password">
+        </div>
+        <div class="col-span-2">
+          <button type="submit" class="btn">Ustvari račun</button>
+          <div id="regError" class="error" role="alert"></div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Prijava -->
+  <div id="logPanel" class="auth-panel">
+    <div class="container">
+      <h2>Prijava</h2>
+      <form id="logForm" class="form">
+        <div class="col-span-2">
+          <label for="loginIdentity">E‑pošta ali uporabniško ime</label>
+          <input id="loginIdentity" type="text" required autocomplete="username">
+        </div>
+        <div class="col-span-2">
+          <label for="loginPassword">Geslo</label>
+          <input id="loginPassword" type="password" required autocomplete="current-password">
+        </div>
+        <div class="col-span-2 inline">
+          <input id="coupleMode" type="checkbox">
+          <label for="coupleMode">Način za pare (povezava s primarnim računom)</label>
+        </div>
+        <div id="coupleCodeRow" class="col-span-2" style="display:none">
+          <label for="coupleCode">Koda para (potrdi povezavo)</label>
+          <input id="coupleCode" type="text" placeholder="npr. XL-5F9Q-AB12" minlength="6">
+        </div>
+        <div class="col-span-2">
+          <button type="submit" class="btn" style="background:linear-gradient(180deg,var(--brand-2),#059669)">Prijava</button>
+          <div id="logError" class="error" role="alert"></div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Hero -->
+  <main id="home" class="container hero">
+    <div class="hero-grid">
+      <div>
+        <h1 class="headline">Xlifer: ena aplikacija za <em>midva</em> in za <em>prijatelje</em>.</h1>
+        <p class="sub">Skupni profil za par, ločena osebna pogleda, zasebni 1:1 in <strong>skupinski</strong> klepeti, skupne beležke, koledar, album spominov, <strong>pošiljanje slik</strong>, <strong>objave</strong> in <strong>zgodbe</strong> ter opcijsko deljenje lokacije. Vse v brskalniku. Vse tvoje.</p>
+        <div class="card points" id="kako-deluje">
+          <div class="point"><div class="badge">1</div><div><strong>Registriraj se</strong> z e‑pošto in si izberi uporabniško ime. To ime najdejo prijatelji, da te dodajo.</div></div>
+          <div class="point"><div class="badge">2</div><div><strong>Ustvari par</strong> (v nastavitvah dobiš <em>kodo para</em>). Partner se prvič prijavi z uporabniškim imenom + geslom + kodo – profila se povežeta.</div></div>
+          <div class="point"><div class="badge">3</div><div><strong>Uporabljaj po svoje</strong>: 1:1 in skupinski klepeti, parski prostor (beležke, koledar, album), push obvestila in klici (WebRTC).</div></div>
+        </div>
+      </div>
+      <aside class="card" id="kaj-omogoca">
+        <h2 style="margin:.2rem 0">Kaj omogoča</h2>
+        <ul style="margin:0 0 10px 18px">
+          <li>Ločena <strong>osebna</strong> in <strong>parska</strong> izkušnja</li>
+          <li>Zasebni 1:1 in <strong>skupinski</strong> klepeti (real‑time)</li>
+          <li>Skupne beležke, to‑do, in koledar z opomniki</li>
+          <li>Album spominov (fotke, trenutki) in <strong>pošiljanje slik</strong></li>
+          <li><strong>Objave</strong> in <strong>zgodbe</strong> (feed)</li>
+          <li>Deljenje lokacije (opt‑in, časovno omejeno)</li>
+          <li>Video/avdio klici (WebRTC; zahteva STUN/TURN)</li>
+        </ul>
+        <p class="hint">Vse teče na Firebase (Auth, Firestore, Storage, FCM). Koda gostuje na GitHubu.</p>
+      </aside>
+    </div>
+
+    <section id="zasebnost">
+      <h2 style="margin:.2rem 0">Zasebnost in nadzor</h2>
+      <div class="features">
+        <div class="feature"><h3>Ti odločaš</h3><p>Deljenje lokacije je vedno izklopljeno, dokler ga ne vklopiš – za izbran čas ali le v sklopu srečanj.</p></div>
+        <div class="feature"><h3>Izvoz podatkov</h3><p>V nastavitvah lahko izvoziš svoje osebne in parske podatke v prenosni obliki.</p></div>
+        <div class="feature"><h3>Varnost</h3><p>Prijava z e‑pošto in geslom ali z uporabniškim imenom (v načinu za pare), zaščiteni seji in preverjanje uporabniškega imena. Podpora potisnim obvestilom.</p></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between">
+      <div>© 2025 Denis Robinek. Vse pravice pridržane.</div>
+      <div>Licenca: MIT. Uporaba omogočena pod pogoji MIT licence.</div>
+    </div>
+  </footer>
+
+  <!-- Firebase SDKs (modular v9+) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getFirestore, doc, setDoc, collection, query, where, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+   // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyCaKT0CCg1xNJanG4-6Pox2UaH_1rSL3M0",
+  authDomain: "chater2-fc480.firebaseapp.com",
+  databaseURL: "https://chater2-fc480-default-rtdb.firebaseio.com",
+  projectId: "chater2-fc480",
+  storageBucket: "chater2-fc480.firebasestorage.app",
+  messagingSenderId: "623092508370",
+  appId: "1:623092508370:web:08cf5d58c6edcfac096f0b",
+  measurementId: "G-5W40WP5YEG"
+};
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // === UI toggle ===
+    const regBtn = document.getElementById('regBtn');
+    const logBtn = document.getElementById('logBtn');
+    const regPanel = document.getElementById('regPanel');
+    const logPanel = document.getElementById('logPanel');
+
+    regBtn.addEventListener('click', () => { regPanel.classList.add('active'); logPanel.classList.remove('active'); });
+    logBtn.addEventListener('click', () => { logPanel.classList.add('active'); regPanel.classList.remove('active'); });
+
+    // === Registracija ===
+    const regForm = document.getElementById('regForm');
+    const regEmail = document.getElementById('regEmail');
+    const regUsername = document.getElementById('regUsername');
+    const regPassword = document.getElementById('regPassword');
+    const regError = document.getElementById('regError');
+
+    async function usernameTaken(username){
+      const qy = query(collection(db, 'profiles'), where('username','==', username));
+      const snap = await getDocs(qy);
+      return !snap.empty;
+    }
+
+    regForm.addEventListener('submit', async (e)=>{
+      e.preventDefault(); regError.textContent = '';
+      try{
+        const email = regEmail.value.trim();
+        const username = regUsername.value.trim();
+        const password = regPassword.value;
+        if(!email) throw new Error('E‑pošta je obvezna.');
+        if(!/^[-_.a-zA-Z0-9]{3,24}$/.test(username)) throw new Error('Uporabniško ime naj bo 3–24 znakov (črke, številke, - _ .)');
+        if((password||'').length < 6) throw new Error('Geslo naj ima vsaj 6 znakov.');
+        if(await usernameTaken(username)) throw new Error('To uporabniško ime je že zasedeno.');
+
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(cred.user, { displayName: username });
+        await setDoc(doc(db, 'profiles', cred.user.uid), { email, username, createdAt:Date.now(), coupleId:null });
+        // (opcijsko) indeks po username -> uid/email v kolekciji usernames/{username}
+        await setDoc(doc(db, 'usernames', username.toLowerCase()), { uid: cred.user.uid, email });
+        location.href = '/setup.html';
+      }catch(err){ regError.textContent = err.message; }
+    });
+
+    // === Prijava (en vnosni field: e‑pošta ali username) ===
+    const logForm = document.getElementById('logForm');
+    const loginIdentity = document.getElementById('loginIdentity');
+    const loginPassword = document.getElementById('loginPassword');
+    const coupleMode = document.getElementById('coupleMode');
+    const coupleCodeRow = document.getElementById('coupleCodeRow');
+    const coupleCodeInput = document.getElementById('coupleCode');
+    const logError = document.getElementById('logError');
+
+    coupleMode.addEventListener('change', ()=>{ coupleCodeRow.style.display = coupleMode.checked ? 'block' : 'none'; });
+
+    const SYNTH_DOMAIN = 'xlifer.local';
+    const emailFromUsername = (u)=> `${u.toLowerCase().replace(/[^a-z0-9_.-]/g,'')||'user'}@${SYNTH_DOMAIN}`;
+
+    async function lookupEmailByUsername(username){
+      // najprej poskusi hitro v usernames/, če obstaja; sicer profiles/
+      const unameDoc = await getDoc(doc(db,'usernames', username.toLowerCase()));
+      if(unameDoc.exists()) return unameDoc.data().email;
+      const qy = query(collection(db,'profiles'), where('username','==', username));
+      const snap = await getDocs(qy);
+      if(!snap.empty) return snap.docs[0].data().email;
+      return null;
+    }
+
+    async function ensureSignInWithIdentity(identity, password, allowCreateIfCouple){
+      const looksLikeEmail = identity.includes('@');
+      if(looksLikeEmail){
+        // navadna prijava z e‑pošto
+        return await signInWithEmailAndPassword(auth, identity, password);
+      }
+      // username
+      const username = identity.trim();
+      const emailFound = await lookupEmailByUsername(username);
+      if(emailFound){
+        return await signInWithEmailAndPassword(auth, emailFound, password);
+      }
+      // ni profila z istim username -> če je parski način, ustvarimo "synthetic email" račun
+      if(allowCreateIfCouple){
+        const syntheticEmail = emailFromUsername(username);
+        const cred = await createUserWithEmailAndPassword(auth, syntheticEmail, password);
+        await updateProfile(cred.user, { displayName: username });
+        await setDoc(doc(db,'profiles', cred.user.uid), { email: syntheticEmail, username, createdAt: Date.now(), coupleId:null });
+        await setDoc(doc(db, 'usernames', username.toLowerCase()), { uid: cred.user.uid, email: syntheticEmail });
+        return cred;
+      }
+      throw new Error('Uporabniško ime ne obstaja. Vklopi način za pare ali se registriraj.');
+    }
+
+    async function linkPartnerByCode(myUid, code){
+      const codeRef = doc(db, 'coupleCodes', code.toUpperCase());
+      const snap = await getDoc(codeRef);
+      if(!snap.exists()) throw new Error('Neveljavna koda para.');
+      const primaryUid = snap.data().primaryUid;
+      const usedBy = snap.data().usedBy || null;
+      if(!primaryUid) throw new Error('Koda ni pravilno nastavljena.');
+      if(usedBy && usedBy !== myUid) throw new Error('Koda je že uporabljena.');
+      const ids = [myUid, primaryUid].sort();
+      const coupleId = `c_${ids[0]}_${ids[1]}`;
+      await setDoc(doc(db, 'couples', coupleId), { members: ids, createdAt: Date.now(), status: 'linked' }, { merge:true });
+      await setDoc(doc(db, 'profiles', myUid), { coupleId }, { merge:true });
+      await setDoc(doc(db, 'profiles', primaryUid), { coupleId }, { merge:true });
+      await setDoc(codeRef, { usedBy: myUid, usedAt: Date.now() }, { merge:true });
+      return coupleId;
+    }
+
+    logForm.addEventListener('submit', async (e)=>{
+      e.preventDefault(); logError.textContent = '';
+      try{
+        const identity = loginIdentity.value.trim();
+        const password = loginPassword.value;
+        if(!identity || !password) throw new Error('Vnesi identiteto (e‑pošta ali username) in geslo.');
+
+        const cred = await ensureSignInWithIdentity(identity, password, coupleMode.checked);
+
+        if(coupleMode.checked){
+          const code = (coupleCodeInput.value||'').trim();
+          if(code.length < 6) throw new Error('Vnesi veljavno kodo para.');
+          await linkPartnerByCode(cred.user.uid, code);
+        }
+        location.href = '/setup.html';
+      }catch(err){ logError.textContent = err.message; }
+    });
+  </script>
+</body>
+</html>
