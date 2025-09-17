@@ -417,13 +417,8 @@
       });
     });
   }
-</script>
-  <script type="module">
-  import { 
-    collection, addDoc, updateDoc, doc, onSnapshot, serverTimestamp 
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-  import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
-  import { auth, db, storage } from "./firebase.js"; // ⚠️ prilagodi pot, če nimaš ločenega fajla
+
+  
 
   // ==================== TODO ====================
   const todoPanel = document.getElementById("tab-todo");
@@ -515,16 +510,10 @@
       g.appendChild(el);
     });
   });
-</script>
-  <script type="module">
-  import { 
-    getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, collection, serverTimestamp, onSnapshot 
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-  import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
+  
   // Uporabi že inicializirane instance, če jih imaš v drugem bloku
-  const auth = getAuth();
-  const db = getFirestore();
+  
 
   // UI elementi
   const callBtn   = document.getElementById('callBtn');
@@ -768,4 +757,5 @@
 </script>
 </body>
 </html>
+
 
