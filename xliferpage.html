@@ -286,13 +286,16 @@
   </nav>
 
   <div id="toast" class="toast"></div>
-  <script type="module">
+<script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, doc, setDoc, getDoc, addDoc, collection, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { 
+    getFirestore, doc, setDoc, getDoc, addDoc, updateDoc, 
+    collection, query, orderBy, onSnapshot, serverTimestamp, arrayUnion 
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
-  // 🔑 Firebase config
+  // Firebase config
   const firebaseConfig = {
     apiKey: "AIzaSyCaKT0CCg1xNJanG4-6Pox2UaH_1rSL3M0",
     authDomain: "chater2-fc480.firebaseapp.com",
@@ -302,127 +305,94 @@
     appId: "1:623092508370:web:08cf5d58c6edcfac096f0b"
   };
 
-  // 🚀 Init
+  // Init
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
   const storage = getStorage(app);
 
-  // ==================== UI & TOAST ====================
-  const views = document.querySelectorAll("main");
-  const dockBtns = document.querySelectorAll(".dock button");
-  const topTitle = document.getElementById("topTitle");
   const toast = document.getElementById("toast");
-
   function showToast(msg) {
     toast.textContent = msg;
     toast.classList.add("show");
     setTimeout(() => toast.classList.remove("show"), 3000);
   }
 
-  dockBtns.forEach(btn => {
-    btn.addEventListener("click", () => {
-      const view = btn.dataset.view;
-      views.forEach(v => v.style.display = v.id === "view-" + view ? "block" : "none");
-      dockBtns.forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      topTitle.textContent = btn.textContent.replace(/[^A-Za-zČŠŽčšž]/g, "");
-    });
-  });
-
   // ==================== AUTH ====================
   onAuthStateChanged(auth, user => {
-    if (!user) {
-      location.href = "/index.html";
-    } else {
-      loadProfile(user.uid);
-      loadFeed();
-      loadStories();
-      loadThreads(user.uid);
-    }
+    if (!user) return location.href = "/index.html";
+    loadFeed();
+    loadThreads(user.uid);
   });
-
   document.getElementById("logout").addEventListener("click", () => signOut(auth));
 
-  // ==================== FEED & STORIES ====================
+  // ==================== FEED ====================
   async function loadFeed() {
     const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
     onSnapshot(q, snap => {
       const feed = document.getElementById("feed");
       feed.innerHTML = "";
       snap.forEach(docSnap => {
-        const p = docSnap.data();
+        const post = docSnap.data();
+        const postId = docSnap.id;
         const el = document.createElement("div");
         el.className = "post";
         el.innerHTML = `
           <div class="head">
-            <div class="avatar"><img src="${p.authorAvatar || ''}" alt=""/></div>
-            <div><strong>${p.authorName || '—'}</strong><div class="meta">${new Date(p.createdAt?.seconds * 1000).toLocaleString()}</div></div>
+            <div class="avatar"><img src="${post.authorAvatar || ''}" alt=""/></div>
+            <div><strong>${post.authorName}</strong>
+              <div class="meta">${post.createdAt?.seconds ? new Date(post.createdAt.seconds*1000).toLocaleString() : ""}</div>
+            </div>
           </div>
-          ${p.image ? `<img src="${p.image}" alt="slika"/>` : ""}
-          <div style="padding:10px">${p.caption || ""}</div>
+          ${post.image ? `<img src="${post.image}" alt="slika"/>` : ""}
+          <div style="padding:10px">${post.caption || ""}</div>
           <div class="actions">
-            <button class="btn">❤️ ${p.likes?.length || 0}</button>
-            <button class="btn">💬</button>
-            <button class="btn">↗️</button>
+            <button class="btn likeBtn">❤️ ${post.likes?.length || 0}</button>
+            <button class="btn commentBtn">💬 ${post.comments?.length || 0}</button>
+            <button class="btn shareBtn">↗️</button>
           </div>
+          <div class="comments"></div>
         `;
+
+        // like
+        el.querySelector(".likeBtn").addEventListener("click", async () => {
+          const uid = auth.currentUser.uid;
+          await updateDoc(doc(db, "posts", postId), { likes: arrayUnion(uid) });
+        });
+
+        // comment
+        el.querySelector(".commentBtn").addEventListener("click", () => {
+          const text = prompt("Napiši komentar:");
+          if (text) {
+            updateDoc(doc(db, "posts", postId), {
+              comments: arrayUnion({ uid: auth.currentUser.uid, text, at: Date.now() })
+            });
+          }
+        });
+
+        // share
+        el.querySelector(".shareBtn").addEventListener("click", () => {
+          navigator.clipboard.writeText(location.origin + "/post/" + postId);
+          showToast("🔗 Link do objave kopiran");
+        });
+
+        // prikaz komentarjev
+        if (post.comments) {
+          const cWrap = el.querySelector(".comments");
+          post.comments.forEach(c => {
+            const ce = document.createElement("div");
+            ce.className = "meta";
+            ce.textContent = c.text;
+            cWrap.appendChild(ce);
+          });
+        }
+
         feed.appendChild(el);
       });
     });
   }
 
-  async function loadStories() {
-    const stories = document.getElementById("stories");
-    stories.innerHTML = `<div class="story">+</div>`;
-    const q = query(collection(db, "stories"), orderBy("createdAt", "desc"));
-    onSnapshot(q, snap => {
-      snap.forEach(docSnap => {
-        const s = docSnap.data();
-        const el = document.createElement("div");
-        el.className = "story";
-        el.innerHTML = `<img src="${s.image}" alt="story"/>`;
-        stories.appendChild(el);
-      });
-    });
-  }
-
-  // ==================== CREATE ====================
-  const imageFile = document.getElementById("imageFile");
-  const canvasImg = document.getElementById("canvasImg");
-  const filterSelect = document.getElementById("filterSelect");
-
-  imageFile.addEventListener("change", e => {
-    const f = e.target.files[0];
-    if (f) canvasImg.src = URL.createObjectURL(f);
-  });
-  filterSelect.addEventListener("input", () => canvasImg.style.filter = filterSelect.value);
-
-  document.getElementById("publishBtn").addEventListener("click", async () => {
-    const user = auth.currentUser;
-    if (!user) return;
-    const file = imageFile.files[0];
-    let url = "";
-    if (file) {
-      const r = ref(storage, "posts/" + Date.now() + "_" + file.name);
-      await uploadBytes(r, file);
-      url = await getDownloadURL(r);
-    }
-    const modeStory = document.getElementById("modeStory").classList.contains("active");
-    const target = modeStory ? "stories" : "posts";
-    await addDoc(collection(db, target), {
-      authorName: user.displayName || user.email,
-      authorAvatar: user.photoURL || "",
-      caption: document.getElementById("caption").value,
-      image: url,
-      createdAt: serverTimestamp()
-    });
-    showToast(modeStory ? "Zgodba objavljena ✅" : "Objava objavljena ✅");
-    document.getElementById("caption").value = "";
-    canvasImg.src = "";
-  });
-
-  // ==================== FRIENDS & THREADS ====================
+  // ==================== THREADS ====================
   async function loadThreads(uid) {
     const q = query(collection(db, "users", uid, "threads"), orderBy("lastAt", "desc"));
     onSnapshot(q, snap => {
@@ -434,94 +404,368 @@
         el.className = "thread";
         el.innerHTML = `
           <div class="avatar"><img src="${t.avatar || ''}" alt=""/></div>
-          <div class="meta"><strong>${t.name || '—'}</strong><div class="meta">${t.lastMsg || ""}</div></div>
+          <div class="meta"><strong>${t.name}</strong><div class="meta">${t.lastMsg || ""}</div></div>
           <div class="heart ${t.shared ? 'active' : ''}" data-id="${docSnap.id}">❤</div>
         `;
-        el.addEventListener("click", () => openChat(docSnap.id, t.name));
+        // srček toggle
+        el.querySelector(".heart").addEventListener("click", async (e) => {
+          const newShared = !t.shared;
+          await updateDoc(doc(db, "users", uid, "threads", docSnap.id), { shared: newShared });
+          showToast(newShared ? "Pogovor deljen s partnerjem ❤️" : "Pogovor skrit od partnerja 💔");
+        });
         threads.appendChild(el);
       });
     });
   }
+</script>
+  <script type="module">
+  import { 
+    collection, addDoc, updateDoc, doc, onSnapshot, serverTimestamp 
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+  import { auth, db, storage } from "./firebase.js"; // ⚠️ prilagodi pot, če nimaš ločenega fajla
 
-  // ==================== CHAT ====================
-  const chatModal = document.getElementById("chatModal");
-  const chatMsgs = document.getElementById("chatMsgs");
-
-  async function openChat(threadId, name) {
-    chatModal.classList.add("active");
-    document.getElementById("chatTitle").textContent = name;
-    chatMsgs.innerHTML = "";
-    const q = query(collection(db, "threads", threadId, "msgs"), orderBy("createdAt"));
-    onSnapshot(q, snap => {
-      chatMsgs.innerHTML = "";
-      snap.forEach(m => {
-        const d = m.data();
-        const el = document.createElement("div");
-        el.className = "msg " + (d.uid === auth.currentUser.uid ? "me" : "");
-        el.textContent = d.text;
-        chatMsgs.appendChild(el);
-      });
-      chatMsgs.scrollTop = chatMsgs.scrollHeight;
-    });
-  }
-
-  document.getElementById("chatSend").addEventListener("click", async () => {
-    const txt = document.getElementById("chatInput").value;
-    if (!txt) return;
-    await addDoc(collection(db, "threads", "global", "msgs"), {
-      uid: auth.currentUser.uid,
-      text: txt,
-      createdAt: serverTimestamp()
-    });
-    document.getElementById("chatInput").value = "";
+  // ==================== TODO ====================
+  const todoPanel = document.getElementById("tab-todo");
+  todoPanel.innerHTML = `
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <input id="todoInput" placeholder="Dodaj nalogo…" style="flex:1"/>
+      <button id="todoAdd" class="btn primary">+</button>
+    </div>
+    <div id="todoList"></div>
+  `;
+  document.getElementById("todoAdd").addEventListener("click", async () => {
+    const val = document.getElementById("todoInput").value.trim();
+    if (!val) return;
+    await addDoc(collection(db, "apps", auth.currentUser.uid, "todo"), { text: val, done: false, at: serverTimestamp() });
+    document.getElementById("todoInput").value = "";
   });
-  document.getElementById("chatClose").addEventListener("click", () => chatModal.classList.remove("active"));
+  onSnapshot(collection(db, "apps", auth.currentUser.uid, "todo"), snap => {
+    const list = document.getElementById("todoList");
+    list.innerHTML = "";
+    snap.forEach(d => {
+      const t = d.data();
+      const el = document.createElement("div");
+      el.innerHTML = `<label><input type="checkbox" ${t.done ? "checked":""}/> ${t.text}</label>`;
+      el.querySelector("input").addEventListener("change", () => updateDoc(doc(db,"apps",auth.currentUser.uid,"todo",d.id),{done:!t.done}));
+      list.appendChild(el);
+    });
+  });
 
-  // ==================== PROFILE ====================
-  async function loadProfile(uid) {
-    const user = auth.currentUser;
-    document.getElementById("meName").textContent = user.displayName || "—";
-    document.getElementById("meEmail").textContent = user.email || "—";
-    if (user.photoURL) document.getElementById("meAvatar").src = user.photoURL;
+  // ==================== NOTES ====================
+  const notesPanel = document.getElementById("tab-notes");
+  notesPanel.innerHTML = `<textarea id="notesArea" style="width:100%;min-height:200px"></textarea><br><button id="saveNotes" class="btn primary">💾 Shrani</button>`;
+  const notesDoc = doc(db,"apps",auth.currentUser.uid,"notes","main");
+  document.getElementById("saveNotes").addEventListener("click", async () => {
+    await updateDoc(notesDoc,{text:document.getElementById("notesArea").value});
+  });
+  onSnapshot(notesDoc,snap=>{ if(snap.exists()) document.getElementById("notesArea").value = snap.data().text });
 
-    const snap = await getDoc(doc(db, "profiles", uid));
-    if (snap.exists()) {
-      const d = snap.data();
-      document.getElementById("pName").value = d.name || "";
-      document.getElementById("pWeb").value = d.web || "";
-      document.getElementById("pIG").value = d.ig || "";
-      document.getElementById("pFB").value = d.fb || "";
-      document.getElementById("pSC").value = d.sc || "";
-      document.getElementById("pDOB").value = d.dob || "";
-      document.getElementById("pBio").value = d.bio || "";
-      if (d.coupleAvatar) document.getElementById("coupleAvatar").src = d.coupleAvatar;
-      if (d.partnerCode) document.getElementById("partnerCode").textContent = d.partnerCode;
+  // ==================== CALENDAR ====================
+  const calPanel = document.getElementById("tab-calendar");
+  calPanel.innerHTML = `
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <input id="calDate" type="date"/>
+      <input id="calTitle" placeholder="Dogodek"/>
+      <button id="calAdd" class="btn primary">Dodaj</button>
+    </div>
+    <div id="calList"></div>
+  `;
+  document.getElementById("calAdd").addEventListener("click",async()=>{
+    const d=document.getElementById("calDate").value;
+    const t=document.getElementById("calTitle").value;
+    if(!d||!t)return;
+    await addDoc(collection(db,"apps",auth.currentUser.uid,"calendar"),{date:d,title:t,at:serverTimestamp()});
+    document.getElementById("calTitle").value="";
+  });
+  onSnapshot(collection(db,"apps",auth.currentUser.uid,"calendar"),snap=>{
+    const list=document.getElementById("calList");
+    list.innerHTML="";
+    snap.forEach(d=>{
+      const ev=d.data();
+      const el=document.createElement("div");
+      el.textContent=`${ev.date}: ${ev.title}`;
+      list.appendChild(el);
+    });
+  });
+
+  // ==================== ALBUM ====================
+  const albPanel = document.getElementById("tab-album");
+  albPanel.innerHTML = `
+    <input id="albFile" type="file" accept="image/*"/>
+    <button id="albUpload" class="btn primary">Naloži</button>
+    <div id="albGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px;margin-top:8px"></div>
+  `;
+  document.getElementById("albUpload").addEventListener("click",async()=>{
+    const f=document.getElementById("albFile").files[0];
+    if(!f)return;
+    const r=ref(storage,"album/"+auth.currentUser.uid+"/"+Date.now()+"_"+f.name);
+    await uploadBytes(r,f);
+    const url=await getDownloadURL(r);
+    await addDoc(collection(db,"apps",auth.currentUser.uid,"album"),{url,at:serverTimestamp()});
+  });
+  onSnapshot(collection(db,"apps",auth.currentUser.uid,"album"),snap=>{
+    const g=document.getElementById("albGrid");
+    g.innerHTML="";
+    snap.forEach(d=>{
+      const a=d.data();
+      const el=document.createElement("img");
+      el.src=a.url;
+      el.style.width="100%";el.style.borderRadius="8px";
+      g.appendChild(el);
+    });
+  });
+</script>
+  <script type="module">
+  import { 
+    getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, collection, serverTimestamp, onSnapshot 
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+  // Uporabi že inicializirane instance, če jih imaš v drugem bloku
+  const auth = getAuth();
+  const db = getFirestore();
+
+  // UI elementi
+  const callBtn   = document.getElementById('callBtn');
+  const videoBtn  = document.getElementById('videoBtn');
+  const chatTitle = document.getElementById('chatTitle');
+
+  // Globalno: nastavi v openChat(threadId, name)
+  // window.currentThreadId = "...";
+  // window.currentThreadSnap = {...} // opcijsko, če ga že bereš
+
+  // WebRTC state
+  let pc = null;
+  let localStream = null;
+  let remoteStream = null;
+  let activeCallRef = null;           // doc ref: threads/{threadId}/calls/{callId}
+  let unsubCall = null;               // onSnapshot za call doc
+  let unsubIncoming = null;           // onSnapshot poslušanje dohodnih klicev
+  let role = null;                    // 'caller' | 'callee'
+
+  const rtcConfig = {
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+      { urls: "stun:stun2.l.google.com:19302" }
+      // Za produkcijo dodaj TURN (npr. Twilio / owncoturn) za NAT traversal:
+      // { urls: "turn:your.turn.server:3478", username: "user", credential: "pass" }
+    ]
+  };
+
+  function ensureHttps() {
+    const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (!isLocal && location.protocol !== 'https:') {
+      console.warn('Za dostop do kamere/mikrofona je priporočljiv HTTPS ali localhost.');
     }
   }
 
-  document.getElementById("saveProfile").addEventListener("click", async () => {
+  // ======= UI handli =======
+  callBtn?.addEventListener('click', () => startCall('audio'));
+  videoBtn?.addEventListener('click', () => startCall('video'));
+
+  // ======= Klicanje =======
+  async function startCall(mode = 'audio') {
+    ensureHttps();
+    const threadId = window.currentThreadId;
+    if (!threadId) { alert("Najprej odpri klepet."); return; }
     const user = auth.currentUser;
     if (!user) return;
-    const data = {
-      name: document.getElementById("pName").value,
-      web: document.getElementById("pWeb").value,
-      ig: document.getElementById("pIG").value,
-      fb: document.getElementById("pFB").value,
-      sc: document.getElementById("pSC").value,
-      dob: document.getElementById("pDOB").value,
-      bio: document.getElementById("pBio").value
-    };
-    await setDoc(doc(db, "profiles", user.uid), data, { merge: true });
-    showToast("Profil shranjen ✅");
-  });
 
-  // ==================== WEBRTC (osnova) ====================
-  document.getElementById("callBtn").addEventListener("click", () => {
-    showToast("📞 Glasovni klic (WebRTC bo dodan)");
-  });
-  document.getElementById("videoBtn").addEventListener("click", () => {
-    showToast("🎥 Video klic (WebRTC bo dodan)");
-  });
+    await cleanupCall(); // počisti morebitno prejšnjo sejo
+
+    role = 'caller';
+    pc = new RTCPeerConnection(rtcConfig);
+    bindPeerEvents();
+
+    // Media
+    const constraints = { audio: true, video: mode === 'video' };
+    localStream = await navigator.mediaDevices.getUserMedia(constraints);
+    localStream.getTracks().forEach(tr => pc.addTrack(tr, localStream));
+    // Pripravi remote stream (če rabiš prikaz, lahko dodaš <video id="remoteVideo"> v modal)
+    remoteStream = new MediaStream();
+
+    // Ustvari call doc
+    const callsCol = collection(db, 'threads', threadId, 'calls');
+    const callDoc = await addDoc(callsCol, {
+      initiatedBy: user.uid,
+      mode,
+      createdAt: serverTimestamp(),
+      status: 'ringing'
+    });
+    activeCallRef = callDoc;
+
+    // ICE kandidati (caller)
+    const callerCandidates = collection(activeCallRef, 'callerCandidates');
+    pc.addEventListener('icecandidate', async event => {
+      if (event.candidate) {
+        await addDoc(callerCandidates, event.candidate.toJSON());
+      }
+    });
+
+    // Offer
+    const offerDesc = await pc.createOffer();
+    await pc.setLocalDescription(offerDesc);
+    await updateDoc(activeCallRef, { offer: { sdp: offerDesc.sdp, type: offerDesc.type } });
+
+    // Poslušaj answer + callee ICE
+    const calleeCandidates = collection(activeCallRef, 'calleeCandidates');
+    unsubCall = onSnapshot(activeCallRef, async snap => {
+      const data = snap.data();
+      if (!pc) return;
+      if (data?.answer && !pc.currentRemoteDescription) {
+        await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+      }
+      if (data?.status === 'ended') {
+        await cleanupCall();
+      }
+    });
+    onSnapshot(calleeCandidates, snap => {
+      snap.docChanges().forEach(change => {
+        if (change.type === 'added') {
+          const candidate = new RTCIceCandidate(change.doc.data());
+          pc.addIceCandidate(candidate).catch(console.error);
+        }
+      });
+    });
+
+    alert(`📞 ${mode === 'video' ? 'Video' : 'Audio'} klic se vzpostavlja… Druga stran bo videla povabilo v tem klepetu.`);
+  }
+
+  // ======= Sprejem dohodnega klica v tem threadu =======
+  // Pokliči to funkcijo v openChat(threadId, name) po tem, ko nastaviš window.currentThreadId
+  window.setupIncomingCallWatcher = function setupIncomingCallWatcher(threadId) {
+    // počisti prejšnje poslušalce
+    if (unsubIncoming) { unsubIncoming(); unsubIncoming = null; }
+    const callsCol = collection(db, 'threads', threadId, 'calls');
+    unsubIncoming = onSnapshot(callsCol, snap => {
+      snap.docChanges().forEach(async ch => {
+        if (ch.type !== 'added') return;
+        const callRef = doc(db, 'threads', threadId, 'calls', ch.doc.id);
+        const data = ch.doc.data();
+        const me = auth.currentUser?.uid;
+        if (!me) return;
+        if (data.initiatedBy === me) return; // to je naš klic
+        if (data.status && data.status !== 'ringing') return;
+        // Povabilo:
+        const accept = confirm(`📲 Dohodni ${data.mode === 'video' ? 'video' : 'audio'} klic v: ${chatTitle?.textContent || 'klepet'}. Sprejmem?`);
+        if (accept) {
+          await joinCall(callRef, data.mode);
+        } else {
+          await updateDoc(callRef, { status: 'declined' });
+        }
+      });
+    });
+  }
+
+  async function joinCall(callRef, mode = 'audio') {
+    ensureHttps();
+    await cleanupCall();
+    role = 'callee';
+
+    pc = new RTCPeerConnection(rtcConfig);
+    bindPeerEvents();
+
+    const constraints = { audio: true, video: mode === 'video' };
+    localStream = await navigator.mediaDevices.getUserMedia(constraints);
+    localStream.getTracks().forEach(tr => pc.addTrack(tr, localStream));
+
+    activeCallRef = callRef;
+
+    // ICE kandidati (callee)
+    const calleeCandidates = collection(activeCallRef, 'calleeCandidates');
+    pc.addEventListener('icecandidate', async event => {
+      if (event.candidate) {
+        await addDoc(calleeCandidates, event.candidate.toJSON());
+      }
+    });
+
+    // Preberi offer, nastavi remote, kreiraj answer
+    const callSnap = await getDoc(activeCallRef);
+    const callData = callSnap.data();
+    if (!callData?.offer) { alert("Klic ni veljaven."); return; }
+
+    await pc.setRemoteDescription(new RTCSessionDescription(callData.offer));
+    const answerDesc = await pc.createAnswer();
+    await pc.setLocalDescription(answerDesc);
+    await updateDoc(activeCallRef, { answer: { type: answerDesc.type, sdp: answerDesc.sdp }, status: 'in-progress' });
+
+    // Caller ICE
+    const callerCandidates = collection(activeCallRef, 'callerCandidates');
+    onSnapshot(callerCandidates, snap => {
+      snap.docChanges().forEach(change => {
+        if (change.type === 'added') {
+          const cand = new RTCIceCandidate(change.doc.data());
+          pc.addIceCandidate(cand).catch(console.error);
+        }
+      });
+    });
+
+    // Poslušaj morebitne spremembe statusev (npr. zaključek)
+    unsubCall = onSnapshot(activeCallRef, snap => {
+      const d = snap.data();
+      if (d?.status === 'ended' || d?.status === 'declined') {
+        cleanupCall();
+      }
+    });
+  }
+
+  // ======= Peer events =======
+  function bindPeerEvents() {
+    pc.addEventListener('connectionstatechange', () => {
+      console.log('Peer connection state:', pc.connectionState);
+      if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+        cleanupCall();
+      }
+    });
+    pc.addEventListener('track', ev => {
+      if (!remoteStream) remoteStream = new MediaStream();
+      remoteStream.addTrack(ev.track);
+      // 👉 Če želiš prikaz: dodaj v modal <video id="remoteVideo" autoplay playsinline></video>
+      const rv = document.getElementById('remoteVideo');
+      if (rv) {
+        rv.srcObject = remoteStream;
+      }
+    });
+  }
+
+  // ======= Zaključi klic / čiščenje =======
+  async function cleanupCall() {
+    try {
+      if (pc) {
+        pc.getSenders().forEach(s => { try { s.track?.stop(); } catch{} });
+        pc.close();
+      }
+      if (localStream) localStream.getTracks().forEach(t => t.stop());
+    } catch (e) { console.warn(e); }
+
+    pc = null;
+    localStream = null;
+    remoteStream = null;
+
+    if (unsubCall) { unsubCall(); unsubCall = null; }
+
+    // Označi call kot 'ended'
+    try {
+      if (activeCallRef) {
+        await updateDoc(activeCallRef, { status: 'ended', endedAt: serverTimestamp() });
+      }
+    } catch (e) { /* ignore */ }
+
+    activeCallRef = null;
+    role = null;
+  }
+
+  // Opcijsko: dodaš gumb "Končaj" v UI in ga vežeš na cleanupCall()
+  // <button id="hangupBtn" class="btn">Končaj</button>
+  // document.getElementById('hangupBtn')?.addEventListener('click', cleanupCall);
+
+  // ======= Integracija v obstoječ openChat =======
+  // KJER IMAŠ DEKLARIRANO openChat(threadId, name) DODAJ:
+  //   window.currentThreadId = threadId;
+  //   window.setupIncomingCallWatcher(threadId);
 </script>
 </body>
 </html>
+
