@@ -302,7 +302,7 @@
 
  <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-  import { getAuth, onAuthStateChanged, updateProfile } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+  import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
   import {
     initializeFirestore, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, collection,
     query, where, orderBy, limit, onSnapshot, serverTimestamp, increment,
@@ -310,18 +310,18 @@
   } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
   import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
 
-  // ------- Firebase config (storageBucket popravljen) -------
- // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyCaKT0CCg1xNJanG4-6Pox2UaH_1rSL3M0",
-  authDomain: "chater2-fc480.firebaseapp.com",
-  databaseURL: "https://chater2-fc480-default-rtdb.firebaseio.com",
-  projectId: "chater2-fc480",
-  storageBucket: "chater2-fc480.firebasestorage.app",
-  messagingSenderId: "623092508370",
-  appId: "1:623092508370:web:08cf5d58c6edcfac096f0b",
-  measurementId: "G-5W40WP5YEG"
-};
+  // ------- Firebase config (PRAVILEN storageBucket) -------
+  const firebaseConfig = {
+    apiKey: "AIzaSyCaKT0CCg1xNJanG4-6Pox2UaH_1rSL3M0",
+    authDomain: "chater2-fc480.firebaseapp.com",
+    databaseURL: "https://chater2-fc480-default-rtdb.firebaseio.com",
+    projectId: "chater2-fc480",
+    storageBucket: "chater2-fc480.appspot.com", // ← popravljeno
+    messagingSenderId: "623092508370",
+    appId: "1:623092508370:web:08cf5d58c6edcfac096f0b",
+    measurementId: "G-5W40WP5YEG"
+  };
+
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true, useFetchStreams: false });
@@ -329,7 +329,7 @@ const firebaseConfig = {
 
   // ------- Helpers -------
   const $  = (id)=>document.getElementById(id);
-  const toast = (msg)=>{ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); };
+  const toast = (msg)=>{ const t=$('toast'); if(!t) return; t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); };
   const fmtDate = (d)=>{
     try{
       if(d?.toDate) return d.toDate();
@@ -367,18 +367,15 @@ const firebaseConfig = {
     myProfile = prof || {};
     coupleId = myProfile.coupleId || null;
 
-    // Fallbacki iz auth, če v profiles ni nič
     const displayName = myProfile.username || me.displayName || me.email?.split('@')[0] || 'Uporabnik';
     const photo = myProfile.photoURL || me.photoURL || '';
 
-    $('meName').textContent = displayName;
-    $('meEmail').textContent = me.email || '';
+    if ($('meName')) $('meName').textContent = displayName;
+    if ($('meEmail')) $('meEmail').textContent = me.email || '';
 
     if(photo){
-      $('meAvatar').src = photo;
-      $('meAvatar').alt = displayName;
-    } else {
-      // ustvari “initials” placeholder
+      if ($('meAvatar')) { $('meAvatar').src = photo; $('meAvatar').alt = displayName; }
+    } else if ($('meAvatar')) {
       $('meAvatar').alt = initials(displayName);
       $('meAvatar').src = `data:image/svg+xml;utf8,${encodeURIComponent(`
         <svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'>
@@ -392,7 +389,7 @@ const firebaseConfig = {
       const c = await safeGetDoc(['couples', coupleId]);
       const members = c?.members || [];
       partnerUid = members.find(u=>u!==me.uid) || null;
-      if (c?.jointPhotoURL) $('jointAvatar').src = c.jointPhotoURL;
+      if (c?.jointPhotoURL && $('jointAvatar')) $('jointAvatar').src = c.jointPhotoURL;
     }
   }
 
@@ -434,36 +431,32 @@ const firebaseConfig = {
 
   // placeholderji
   function renderEmptyStories(){
-    const el = $('stories'); el.innerHTML='';
+    const el = $('stories'); if(!el) return;
+    el.innerHTML='';
     const card = document.createElement('div');
     card.className='story';
-    card.innerHTML = `
-      <div style="display:grid;place-items:center;height:100%;color:#9ca3af">Ni zgodb.<br/><span class="hint">Ustvari prvo zgodbo ➜</span></div>
-    `;
+    card.innerHTML = `<div style="display:grid;place-items:center;height:100%;color:#9ca3af">Ni zgodb.<br/><span class="hint">Ustvari prvo zgodbo ➜</span></div>`;
     el.appendChild(card);
   }
   function renderEmptyFeed(){
-    const el = $('feed'); el.innerHTML='';
+    const el = $('feed'); if(!el) return;
+    el.innerHTML='';
     const wrap = document.createElement('div');
     wrap.className='post';
-    wrap.innerHTML = `
-      <div class="post-head" style="justify-content:center">
-        <div class="hint">Zaenkrat ni objav. Dodaj svojo v zavihku “Ustvari”.</div>
-      </div>
-    `;
+    wrap.innerHTML = `<div class="post-head" style="justify-content:center"><div class="hint">Zaenkrat ni objav. Dodaj svojo v zavihku “Ustvari”.</div></div>`;
     el.appendChild(wrap);
   }
 
   function renderStories(){
+    const el = $('stories'); if(!el) return;
     clearUnsubs(storiesUnsubs);
-    const el = $('stories'); el.innerHTML = '';
+    el.innerHTML = '';
     let hadAny = false;
 
+    // ODSTRANJEN legacy ['stories']
     const paths = [
       ['users', me.uid, 'stories'],
-      ...(coupleId ? [['couples', coupleId, 'stories']] : []),
-      // legacy top-level (če imaš stare zapise)
-      ['stories']
+      ...(coupleId ? [['couples', coupleId, 'stories']] : [])
     ];
 
     const buffer = new Map();
@@ -485,9 +478,7 @@ const firebaseConfig = {
     };
 
     paths.forEach(p=>{
-      const qy = p.length===1
-        ? query(collection(db, p[0]), orderBy('createdAt','desc'), limit(30))
-        : query(collection(db, ...p), orderBy('createdAt','desc'), limit(30));
+      const qy = query(collection(db, ...p), orderBy('createdAt','desc'), limit(30));
       const unsub = onSnapshot(qy, (qs)=>{
         qs.forEach(d=>{
           hadAny = true;
@@ -499,7 +490,6 @@ const firebaseConfig = {
       storiesUnsubs.push(unsub);
     });
 
-    // če se res nič ne vrne
     setTimeout(()=>{ if(!hadAny && el.children.length===0) renderEmptyStories(); }, 1200);
   }
 
@@ -537,15 +527,15 @@ const firebaseConfig = {
   }
 
   function renderFeed(){
+    const el = $('feed'); if(!el) return;
     clearUnsubs(postsUnsubs);
-    const el = $('feed'); el.innerHTML = '';
+    el.innerHTML = '';
     let hadAny = false;
 
+    // ODSTRANJEN legacy ['posts']
     const paths = [
       ['users', me.uid, 'posts'],
-      ...(coupleId ? [['couples', coupleId, 'posts']] : []),
-      // legacy top-level (če imaš stare zapise)
-      ['posts']
+      ...(coupleId ? [['couples', coupleId, 'posts']] : [])
     ];
 
     const buffer = new Map();
@@ -558,9 +548,7 @@ const firebaseConfig = {
     };
 
     paths.forEach(p=>{
-      const qy = p.length===1
-        ? query(collection(db, p[0]), orderBy('createdAt','desc'), limit(50))
-        : query(collection(db, ...p), orderBy('createdAt','desc'), limit(50));
+      const qy = query(collection(db, ...p), orderBy('createdAt','desc'), limit(50));
       const unsub = onSnapshot(qy, (qs)=>{
         qs.forEach(d=>{
           hadAny = true;
@@ -578,95 +566,107 @@ const firebaseConfig = {
   function openStory(){ toast('Predvajalnik zgodb – WIP'); }
   function openChatForPost(){ toast('Komentarji – WIP'); }
 
-  // ------- SHARE modal (manjkal; brez tega je crashalo) -------
+  // ------- SHARE modal (brez indeksa; lokalni sort) -------
   function openShare(postId){
-    const modal = $('shareModal'); const list = $('shareList'); list.innerHTML='';
+    const modal = $('shareModal'); const list = $('shareList');
+    if(!modal || !list) return;
+    list.innerHTML='';
     modal.classList.add('active');
 
-    const qy = query(collection(db,'conversations'), where('participants','array-contains', me.uid), orderBy('updatedAt','desc'), limit(30));
+    const qy = query(
+      collection(db,'conversations'),
+      where('participants','array-contains', me.uid),
+      limit(50)
+    );
+
     onSnapshot(qy, (qs)=>{
+      const items = [];
+      qs.forEach(d=> items.push({ id:d.id, ...d.data() }));
+      items.sort((a,b)=>(b.updatedAt?.toMillis?.()||0)-(a.updatedAt?.toMillis?.()||0));
+
       list.innerHTML='';
-      if(qs.empty){
+      if(items.length===0){
         const empty = document.createElement('div'); empty.className='note'; empty.textContent='Ni pogovorov. Ustvari novega v Friends.';
         list.appendChild(empty); return;
       }
-      qs.forEach(d=>{
-        const c = d.data();
+      items.forEach(c=>{
         const item = document.createElement('div'); item.className='convo';
         item.innerHTML=`<div class="name">${c.title||'Pogovor'}</div><span class="spacer"></span><div class="hint">pošlji</div>`;
         item.addEventListener('click', async ()=>{
-          await addDoc(collection(db,'conversations', d.id, 'msgs'), { type:'share', postId, by:me.uid, createdAt: serverTimestamp() });
-          await updateDoc(doc(db,'conversations', d.id), { updatedAt: serverTimestamp() });
+          await addDoc(collection(db,'conversations', c.id, 'msgs'), { type:'share', postId, by:me.uid, createdAt: serverTimestamp() });
+          await updateDoc(doc(db,'conversations', c.id), { updatedAt: serverTimestamp() });
           toast('Posredovano'); modal.classList.remove('active');
         });
         list.appendChild(item);
       });
     });
-    $('shareClose').onclick = ()=> modal.classList.remove('active');
+
+    const closeBtn = $('shareClose');
+    if (closeBtn) closeBtn.onclick = ()=> modal.classList.remove('active');
   }
 
-  // ------- FRIENDS & CHAT (tvoje izhodišče; drobni guardi) -------
+  // ------- FRIENDS & CHAT -------
   const convosEl = $('convos'); let convUnsub = null;
+
   function loadConversations(){
-  if (convUnsub) convUnsub();
-  const fVal = $('convFilter').value.toLowerCase();
-  const sort = $('convSort').value;
+    if (!convosEl) return;
+    if (convUnsub) convUnsub();
+    const fVal = ($('convFilter')?.value || '').toLowerCase();
+    const sort = $('convSort')?.value || 'recent';
 
-  // brez orderBy -> ne potrebuje composite indexa
-  const qy = query(collection(db,'conversations'), where('participants','array-contains', me.uid));
+    const qy = query(collection(db,'conversations'), where('participants','array-contains', me.uid));
 
-  convUnsub = onSnapshot(qy, (qs)=>{
-    const items = [];
-    qs.forEach(d => {
-      const c = { id: d.id, ...d.data() };
-      if (fVal && !(c.title||'').toLowerCase().includes(fVal)) return;
-      items.push(c);
-    });
-
-    // lokalno sortiranje
-    if (sort === 'recent') {
-      items.sort((a,b)=> (b.updatedAt?.toMillis?.()||0) - (a.updatedAt?.toMillis?.()||0));
-    } else if (sort === 'name') {
-      items.sort((a,b)=> (a.title||'').localeCompare(b.title||''));
-    } else if (sort === 'active') {
-      items.sort((a,b)=> (b.msgCount||0) - (a.msgCount||0));
-    }
-
-    convosEl.innerHTML = '';
-    items.forEach(c=>{
-      const row = document.createElement('div'); row.className='convo';
-      row.innerHTML = `<div class="avatar">${c.photo? `<img src="${c.photo}">`:''}</div>
-        <div><div class="name">${c.title||'Pogovor'}</div><div class="hint">${c.lastMsg||''}</div></div>
-        <span class="spacer"></span>`;
-      const heart = document.createElement('button'); heart.className='heart'; heart.innerHTML='❤️';
-      heart.classList.toggle('active', !!c.partnerAccess);
-      heart.addEventListener('click', async (e)=>{
-        e.stopPropagation();
-        if(!partnerUid){ toast('Najprej poveži partnerja.'); return; }
-        const add = !c.partnerAccess;
-        await updateDoc(doc(db,'conversations', c.id), {
-          partnerAccess: add,
-          participants: add ? arrayUnion(partnerUid) : arrayRemove(partnerUid)
-        });
-        toast(add? 'Partner dobi dostop' : 'Dostop partnerju onemogočen');
+    convUnsub = onSnapshot(qy, (qs)=>{
+      const items = [];
+      qs.forEach(d => {
+        const c = { id: d.id, ...d.data() };
+        if (fVal && !(c.title||'').toLowerCase().includes(fVal)) return;
+        items.push(c);
       });
-      row.appendChild(heart);
-      row.addEventListener('click', ()=> openChat(c.id, c));
-      convosEl.appendChild(row);
-    });
-  }, (err)=>{
-    console.error('conversations snapshot error:', err);
-    toast('Potrebujem Firestore indeks (glej konzolo).');
-  });
-}
 
+      if (sort === 'recent') {
+        items.sort((a,b)=> (b.updatedAt?.toMillis?.()||0) - (a.updatedAt?.toMillis?.()||0));
+      } else if (sort === 'name') {
+        items.sort((a,b)=> (a.title||'').localeCompare(b.title||''));
+      } else if (sort === 'active') {
+        items.sort((a,b)=> (b.msgCount||0) - (a.msgCount||0));
+      }
+
+      convosEl.innerHTML = '';
+      items.forEach(c=>{
+        const row = document.createElement('div'); row.className='convo';
+        row.innerHTML = `<div class="avatar">${c.photo? `<img src="${c.photo}">`:''}</div>
+          <div><div class="name">${c.title||'Pogovor'}</div><div class="hint">${c.lastMsg||''}</div></div>
+          <span class="spacer"></span>`;
+        const heart = document.createElement('button'); heart.className='heart'; heart.innerHTML='❤️';
+        heart.classList.toggle('active', !!c.partnerAccess);
+        heart.addEventListener('click', async (e)=>{
+          e.stopPropagation();
+          if(!partnerUid){ toast('Najprej poveži partnerja.'); return; }
+          const add = !c.partnerAccess;
+          await updateDoc(doc(db,'conversations', c.id), {
+            partnerAccess: add,
+            participants: add ? arrayUnion(partnerUid) : arrayRemove(partnerUid)
+          });
+          toast(add? 'Partner dobi dostop' : 'Dostop partnerju onemogočen');
+        });
+        row.appendChild(heart);
+        row.addEventListener('click', ()=> openChat(c.id, c));
+        convosEl.appendChild(row);
+      });
+    }, (err)=>{
+      console.error('conversations snapshot error:', err);
+      toast('Napaka pri branju pogovorov (pravila ali indeks).');
+    });
+  }
 
   const chatModal = $('chatModal'); const chatBody = $('chatBody');
   let msgsUnsub = null; let currentConvoId = null;
   function openChat(id, data){
+    if (!chatModal || !chatBody) return;
     currentConvoId = id; chatBody.innerHTML='';
-    $('chatTitle').textContent = data?.title||'Pogovor';
-    $('chatHeart').classList.toggle('active', !!data?.partnerAccess);
+    if ($('chatTitle')) $('chatTitle').textContent = data?.title||'Pogovor';
+    if ($('chatHeart')) $('chatHeart').classList.toggle('active', !!data?.partnerAccess);
     chatModal.classList.add('active');
     if(msgsUnsub) msgsUnsub();
     msgsUnsub = onSnapshot(query(collection(db,'conversations', id, 'msgs'), orderBy('createdAt')), (qs)=>{
@@ -674,19 +674,29 @@ const firebaseConfig = {
       qs.forEach(m=>{
         const msg=m.data(); const div=document.createElement('div'); div.className='msg'+(msg.by===me.uid?' me':'');
         div.textContent = msg.text || (msg.type==='share'? `Deljena objava: ${msg.postId}` : '[neznano]');
-        chatBody.appendChild(div); chatBody.scrollTop = chatBody.scrollHeight;
+        chatBody.appendChild(div);
       });
-    });
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }, (err)=> console.error('msgs snapshot error', err));
   }
-  $('chatClose').addEventListener('click', ()=>{ chatModal.classList.remove('active'); if(msgsUnsub) msgsUnsub(); });
-  $('chatSend').addEventListener('click', async ()=>{
-    const inp = $('chatInput'); const text = inp.value.trim(); if(!text) return;
-    await addDoc(collection(db,'conversations', currentConvoId, 'msgs'), { text, by: me.uid, createdAt: serverTimestamp() });
-    await updateDoc(doc(db,'conversations', currentConvoId), { lastMsg: text, updatedAt: serverTimestamp(), msgCount: increment(1) });
-    inp.value='';
+
+  const chatCloseBtn = $('chatClose');
+  if (chatCloseBtn) chatCloseBtn.addEventListener('click', ()=>{ chatModal?.classList.remove('active'); if(msgsUnsub) msgsUnsub(); });
+
+  const chatSendBtn = $('chatSend');
+  if (chatSendBtn) chatSendBtn.addEventListener('click', async ()=>{
+    const inp = $('chatInput'); if(!inp) return;
+    const text = inp.value.trim(); if(!text || !currentConvoId) return;
+    try{
+      await addDoc(collection(db,'conversations', currentConvoId, 'msgs'), { text, by: me.uid, createdAt: serverTimestamp() });
+      await updateDoc(doc(db,'conversations', currentConvoId), { lastMsg: text, updatedAt: serverTimestamp(), msgCount: increment(1) });
+      inp.value='';
+    }catch(e){ console.error('send msg error', e); toast('Pošiljanje ni uspelo'); }
   });
-  $('chatHeart').addEventListener('click', async ()=>{
-    if(!partnerUid){ toast('Najprej poveži partnerja.'); return; }
+
+  const chatHeartBtn = $('chatHeart');
+  if (chatHeartBtn) chatHeartBtn.addEventListener('click', async ()=>{
+    if(!partnerUid || !currentConvoId){ toast('Ni partnerja ali pogovora.'); return; }
     const add = !$('chatHeart').classList.contains('active');
     await updateDoc(doc(db,'conversations', currentConvoId), {
       partnerAccess: add,
@@ -696,10 +706,11 @@ const firebaseConfig = {
     toast(add? 'Dostop omogočen' : 'Dostop onemogočen');
   });
 
-  $('convFilter').addEventListener('input', loadConversations);
-  $('convSort').addEventListener('change', loadConversations);
+  const convFilterEl = $('convFilter'); if (convFilterEl) convFilterEl.addEventListener('input', loadConversations);
+  const convSortEl = $('convSort'); if (convSortEl) convSortEl.addEventListener('change', loadConversations);
 
-  $('btnNewConvo').addEventListener('click', async ()=>{
+  const btnNewConvo = $('btnNewConvo');
+  if (btnNewConvo) btnNewConvo.addEventListener('click', async ()=>{
     const uname = prompt('Vnesi username prijatelja (ali več, loči z vejico)'); if(!uname) return;
     const usernames = uname.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
     const ids = [];
@@ -708,11 +719,19 @@ const firebaseConfig = {
     }
     if(!ids.length){ toast('Uporabnika ni mogoče najti.'); return; }
     const title = prompt('Naslov pogovora/grupe:') || 'Pogovor';
-    const ref = await addDoc(collection(db,'conversations'), { participants: arrayUnion(me.uid, ...ids), title, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), msgCount:0, partnerAccess:false });
-    openChat(ref.id, { title });
+    const ref = await addDoc(collection(db,'conversations'), {
+      participants: arrayUnion(me.uid, ...ids),
+      title,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      msgCount: 0,
+      partnerAccess: false
+    });
+    openChat(ref.id, { title, partnerAccess:false });
   });
 
-  $('btnPartnerChat').addEventListener('click', async ()=>{
+  const btnPartnerChat = $('btnPartnerChat');
+  if (btnPartnerChat) btnPartnerChat.addEventListener('click', async ()=>{
     if(!partnerUid){ toast('Najprej poveži partnerja.'); return; }
     const qy = query(collection(db,'conversations'), where('direct','==', true), where('participants','array-contains', me.uid));
     const qs = await getDocs(qy);
@@ -722,7 +741,8 @@ const firebaseConfig = {
     openChat(ref.id, { title:'Partner', partnerAccess:true });
   });
 
-  $('btnAddFriend').addEventListener('click', async ()=>{
+  const btnAddFriend = $('btnAddFriend');
+  if (btnAddFriend) btnAddFriend.addEventListener('click', async ()=>{
     const uname = prompt('Poišči prijatelja (username)'); if(!uname) return;
     const ds = await getDoc(doc(db,'usernames', uname.toLowerCase()));
     if(!ds.exists()){ toast('Uporabnika ni.'); return; }
@@ -735,17 +755,18 @@ const firebaseConfig = {
   // ------- CREATE: objava & zgodba -------
   document.querySelectorAll('.tab').forEach(t=> t.addEventListener('click', ()=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
-    const mode=t.getAttribute('data-mode'); $('postForm').style.display = (mode==='post')?'block':'none'; $('storyForm').style.display=(mode==='story')?'block':'none';
+    const mode=t.getAttribute('data-mode'); if ($('postForm')) $('postForm').style.display = (mode==='post')?'block':'none'; if ($('storyForm')) $('storyForm').style.display=(mode==='story')?'block':'none';
   }));
 
-  $('btnPublishPost').addEventListener('click', async ()=>{
+  const btnPublishPost = $('btnPublishPost');
+  if (btnPublishPost) btnPublishPost.addEventListener('click', async ()=>{
     try{
-      const f = $('postFile').files?.[0]; const caption = $('postCaption').value.trim();
+      const f = $('postFile')?.files?.[0]; const caption = ($('postCaption')?.value || '').trim();
       if(!f){ toast('Izberi sliko.'); return; }
-      const asCouple = !!($('postAsCouple').checked && coupleId);
+      const asCouple = !!($('postAsCouple')?.checked && coupleId);
       const { ownerType, ownerId, basePath } = ownerInfo(asCouple);
       const dest = `${ownerType==='couple'?'couples':'users'}/${ownerId}/posts/${Date.now()}_${f.name}`;
-      const url = await uploadFile(f, dest, (p)=>{ /* lahko dodaš progress bar */ });
+      const url = await uploadFile(f, dest);
       await addDoc(collection(db, ...basePath, 'posts'), {
         ownerType, ownerId,
         authorUid: me.uid,
@@ -757,40 +778,46 @@ const firebaseConfig = {
         likes: 0
       });
       toast('Objava objavljena');
-      $('postCaption').value=''; $('postFile').value='';
+      if ($('postCaption')) $('postCaption').value=''; if ($('postFile')) $('postFile').value='';
     }catch(e){ console.error(e); toast('Objava ni uspela'); }
   });
 
   // Story editor
-  const storyCanvas = $('storyCanvas'); const sCtx = storyCanvas.getContext('2d'); const storyText = $('storyText');
+  const storyCanvas = $('storyCanvas'); const sCtx = storyCanvas?.getContext?.('2d'); const storyText = $('storyText');
   let baseImg = null;
   function renderStory(){
-    if(!baseImg) return;
+    if(!baseImg || !storyCanvas || !sCtx) return;
     const w = baseImg.width; const h = baseImg.height;
     const maxW = storyCanvas.parentElement.clientWidth; const scale = Math.min(maxW/w, 420/h, 1);
     storyCanvas.width = Math.floor(w*scale); storyCanvas.height = Math.floor(h*scale);
-    sCtx.filter = $('filterSelect').value||'none';
+    const filterSel = $('filterSelect'); sCtx.filter = filterSel ? (filterSel.value||'none') : 'none';
     sCtx.drawImage(baseImg, 0, 0, storyCanvas.width, storyCanvas.height);
-    // text overlay
-    const rect = storyText.getBoundingClientRect(); const pRect = storyCanvas.getBoundingClientRect();
-    const x = Math.max(10, rect.left - pRect.left); const y = Math.max(24, rect.top - pRect.top + 18);
-    sCtx.filter = 'none'; sCtx.font = '20px sans-serif'; sCtx.fillStyle = 'white'; sCtx.fillText(storyText.textContent||'', x, y);
+    if (storyText){
+      const rect = storyText.getBoundingClientRect(); const pRect = storyCanvas.getBoundingClientRect();
+      const x = Math.max(10, rect.left - pRect.left); const y = Math.max(24, rect.top - pRect.top + 18);
+      sCtx.filter = 'none'; sCtx.font = '20px sans-serif'; sCtx.fillStyle = 'white'; sCtx.fillText(storyText.textContent||'', x, y);
+    }
   }
-  $('filterSelect').addEventListener('change', renderStory);
+  const filterSelect = $('filterSelect'); if (filterSelect) filterSelect.addEventListener('change', renderStory);
   function setBaseImage(src){ baseImg = new Image(); baseImg.onload = renderStory; baseImg.src = src; }
-  $('storyFile').addEventListener('change', ()=>{ const f=$('storyFile').files?.[0]; if(f){ setBaseImage(URL.createObjectURL(f)); }});
+  const storyFile = $('storyFile'); if (storyFile) storyFile.addEventListener('change', ()=>{ const f=storyFile.files?.[0]; if(f){ setBaseImage(URL.createObjectURL(f)); }});
 
   // Drag story text
-  let drag=false, dx=0, dy=0; const st=storyText; const wrap=st.parentElement;
-  st.addEventListener('mousedown', (e)=>{ drag=true; dx=e.offsetX; dy=e.offsetY; });
-  document.addEventListener('mouseup', ()=> drag=false);
-  wrap.addEventListener('mousemove', (e)=>{ if(!drag) return; const r=wrap.getBoundingClientRect(); st.style.left=(e.clientX-r.left-dx)+'px'; st.style.top=(e.clientY-r.top-dy)+'px'; renderStory(); });
+  if (storyText && storyText.parentElement){
+    let drag=false, dx=0, dy=0; const st=storyText; const wrap=st.parentElement;
+    st.addEventListener('mousedown', (e)=>{ drag=true; dx=e.offsetX; dy=e.offsetY; });
+    document.addEventListener('mouseup', ()=> drag=false);
+    wrap.addEventListener('mousemove', (e)=>{ if(!drag) return; const r=wrap.getBoundingClientRect(); st.style.left=(e.clientX-r.left-dx)+'px'; st.style.top=(e.clientY-r.top-dy)+'px'; renderStory(); });
+  }
 
-  $('btnOpenCamera').addEventListener('click', async ()=>{
+  const btnOpenCamera = $('btnOpenCamera');
+  if (btnOpenCamera) btnOpenCamera.addEventListener('click', async ()=>{
     try{
-      const v = $('camera'); v.style.display='block';
+      const v = $('camera'); if(!v) return;
+      v.style.display='block';
       const stream = await navigator.mediaDevices.getUserMedia({ video:true }); v.srcObject = stream;
       setTimeout(()=>{
+        if(!storyCanvas || !sCtx) return;
         storyCanvas.width = v.videoWidth; storyCanvas.height = v.videoHeight; sCtx.drawImage(v,0,0);
         v.srcObject.getTracks().forEach(t=>t.stop()); v.style.display='none';
         baseImg = new Image(); baseImg.onload=renderStory; baseImg.src = storyCanvas.toDataURL('image/jpeg');
@@ -798,12 +825,13 @@ const firebaseConfig = {
     }catch(e){ console.error(e); toast('Kamera ni na voljo'); }
   });
 
-  $('btnPublishStory').addEventListener('click', async ()=>{
-    if(!baseImg){ toast('Dodaj sliko ali kamero.'); return; }
+  const btnPublishStory = $('btnPublishStory');
+  if (btnPublishStory) btnPublishStory.addEventListener('click', async ()=>{
+    if(!baseImg || !storyCanvas) { toast('Dodaj sliko ali kamero.'); return; }
     renderStory();
     storyCanvas.toBlob(async (blob)=>{
       try{
-        const asCouple = !!($('storyAsCouple').checked && coupleId);
+        const asCouple = !!($('storyAsCouple')?.checked && coupleId);
         const { ownerType, ownerId, basePath } = ownerInfo(asCouple);
         const name = `story_${Date.now()}.jpg`;
         const file = new File([blob], name, { type:'image/jpeg' });
@@ -827,16 +855,16 @@ const firebaseConfig = {
   document.querySelectorAll('.app-tab').forEach(t=> t.addEventListener('click', ()=>{
     document.querySelectorAll('.app-tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
     const app=t.getAttribute('data-app');
-    $('appTodos').style.display = app==='todos'? 'block' : 'none';
-    $('appNotes').style.display = app==='notes'? 'block' : 'none';
-    $('appCalendar').style.display = app==='calendar'? 'block' : 'none';
-    $('appAlbum').style.display = app==='album'? 'block' : 'none';
+    if ($('appTodos')) $('appTodos').style.display = app==='todos'? 'block' : 'none';
+    if ($('appNotes')) $('appNotes').style.display = app==='notes'? 'block' : 'none';
+    if ($('appCalendar')) $('appCalendar').style.display = app==='calendar'? 'block' : 'none';
+    if ($('appAlbum')) $('appAlbum').style.display = app==='album'? 'block' : 'none';
   }));
 
   // Todos
   function loadTodos(){
     const p = scopePath('todos'); const qy = query(collection(db, ...p), orderBy('createdAt','desc'));
-    onSnapshot(qy, (qs)=>{ const list=$('todoList'); list.innerHTML=''; 
+    onSnapshot(qy, (qs)=>{ const list=$('todoList'); if(!list) return; list.innerHTML=''; 
       if(qs.empty){ const n=document.createElement('div'); n.className='hint'; n.textContent='Ni opravil.'; list.appendChild(n); return; }
       qs.forEach(d=>{
         const t=d.data(); const el=document.createElement('div'); el.className='todo';
@@ -847,15 +875,17 @@ const firebaseConfig = {
       });
     });
   }
-  $('btnAddTodo').addEventListener('click', async ()=>{
-    const text = $('todoInput').value.trim(); if(!text) return; $('todoInput').value='';
+  const btnAddTodo = $('btnAddTodo');
+  if (btnAddTodo) btnAddTodo.addEventListener('click', async ()=>{
+    const input = $('todoInput'); if(!input) return;
+    const text = input.value.trim(); if(!text) return; input.value='';
     await addDoc(collection(db, ...scopePath('todos')), { text, done:false, createdAt: serverTimestamp(), by: me.uid });
   });
 
   // Notes
   function loadNotes(){
     const p = scopePath('notes'); const qy = query(collection(db, ...p), orderBy('createdAt','desc'));
-    onSnapshot(qy, (qs)=>{ const list=$('notes'); list.innerHTML=''; 
+    onSnapshot(qy, (qs)=>{ const list=$('notes'); if(!list) return; list.innerHTML=''; 
       if(qs.empty){ const n=document.createElement('div'); n.className='hint'; n.textContent='Ni beležk.'; list.appendChild(n); return; }
       qs.forEach(d=>{
         const n=d.data(); const el=document.createElement('div'); el.className='note';
@@ -865,15 +895,17 @@ const firebaseConfig = {
       });
     });
   }
-  $('btnAddNote').addEventListener('click', async ()=>{
-    const text = $('noteInput').value.trim(); if(!text) return; $('noteInput').value='';
+  const btnAddNote = $('btnAddNote');
+  if (btnAddNote) btnAddNote.addEventListener('click', async ()=>{
+    const input = $('noteInput'); if(!input) return;
+    const text = input.value.trim(); if(!text) return; input.value='';
     await addDoc(collection(db, ...scopePath('notes')), { text, createdAt: serverTimestamp(), by: me.uid });
   });
 
   // Calendar
   function loadEvents(){
     const p = scopePath('events'); const qy = query(collection(db, ...p), orderBy('date','asc'));
-    onSnapshot(qy, (qs)=>{ const list=$('events'); list.innerHTML=''; 
+    onSnapshot(qy, (qs)=>{ const list=$('events'); if(!list) return; list.innerHTML=''; 
       if(qs.empty){ const n=document.createElement('div'); n.className='hint'; n.textContent='Ni dogodkov.'; list.appendChild(n); return; }
       qs.forEach(d=>{
         const e=d.data(); const el=document.createElement('div'); el.className='event';
@@ -881,16 +913,18 @@ const firebaseConfig = {
       });
     });
   }
-  $('btnAddEvent').addEventListener('click', async ()=>{
-    const title = $('eventTitle').value.trim(); const date = $('eventDate').value; if(!title||!date) return;
-    $('eventTitle').value=''; $('eventDate').value='';
+  const btnAddEvent = $('btnAddEvent');
+  if (btnAddEvent) btnAddEvent.addEventListener('click', async ()=>{
+    const t = $('eventTitle'); const d = $('eventDate'); if(!t||!d) return;
+    const title = t.value.trim(); const date = d.value; if(!title||!date) return;
+    t.value=''; d.value='';
     await addDoc(collection(db, ...scopePath('events')), { title, date, createdAt: serverTimestamp(), by: me.uid });
   });
 
   // Album
   function loadAlbum(){
     const p = scopePath('album'); const qy = query(collection(db, ...p), orderBy('createdAt','desc'));
-    onSnapshot(qy, (qs)=>{ const grid=$('albumGrid'); grid.innerHTML='';
+    onSnapshot(qy, (qs)=>{ const grid=$('albumGrid'); if(!grid) return; grid.innerHTML='';
       if(qs.empty){
         const ph = document.createElement('div'); ph.className='hint'; ph.style.padding='8px'; ph.textContent='Album je prazen. Naloži prvo sliko.';
         grid.appendChild(ph); return;
@@ -900,30 +934,34 @@ const firebaseConfig = {
       });
     });
   }
-  $('btnAddPhoto').addEventListener('click', async ()=>{
-    const f=$('albumFile').files?.[0]; if(!f){ toast('Izberi sliko.'); return; }
+  const btnAddPhoto = $('btnAddPhoto');
+  if (btnAddPhoto) btnAddPhoto.addEventListener('click', async ()=>{
+    const input = $('albumFile'); if(!input) return;
+    const f=input.files?.[0]; if(!f){ toast('Izberi sliko.'); return; }
     const dest = coupleId ? `couples/${coupleId}/album/${Date.now()}_${f.name}` : `users/${me.uid}/album/${Date.now()}_${f.name}`;
     try{
       toast('Nalagam…');
-      const url=await uploadFile(f, dest, (p)=>{ /* lahko prikažeš % */ });
+      const url=await uploadFile(f, dest);
       await addDoc(collection(db, ...scopePath('album')), { url, createdAt: serverTimestamp(), by: me.uid });
-      $('albumFile').value='';
+      input.value='';
       toast('Naloženo ✅');
     }catch(e){ console.error(e); toast('Nalaganje ni uspelo'); }
   });
 
   // ------- PROFILE -------
-  $('btnSaveJoint').addEventListener('click', async ()=>{
+  const btnSaveJoint = $('btnSaveJoint');
+  if (btnSaveJoint) btnSaveJoint.addEventListener('click', async ()=>{
     if(!coupleId){ toast('Najprej poveži partnerja.'); return; }
-    const f = $('jointFile').files?.[0]; if(!f){ toast('Izberi sliko.'); return; }
+    const f = $('jointFile')?.files?.[0]; if(!f){ toast('Izberi sliko.'); return; }
     try{
       const url = await uploadFile(f, `couples/${coupleId}/joint_${Date.now()}_${f.name}`);
       await updateDoc(doc(db,'couples', coupleId), { jointPhotoURL: url });
-      $('jointAvatar').src = url; toast('Skupna slika shranjena');
+      if ($('jointAvatar')) $('jointAvatar').src = url; toast('Skupna slika shranjena');
     }catch(e){ console.error(e); toast('Shranjevanje ni uspelo'); }
   });
 
-  $('menuBtn').addEventListener('click', async ()=>{
+  const menuBtn = $('menuBtn');
+  if (menuBtn) menuBtn.addEventListener('click', async ()=>{
     const choice = prompt('Meni:\n1) Prikaži kodo za povezavo para\n2) Ustvari novo kodo');
     if(choice==='1'){
       const qy = query(collection(db,'coupleCodes'), where('primaryUid','==', me.uid));
@@ -936,16 +974,18 @@ const firebaseConfig = {
     }
   });
 
-  $('btnEditProfile').addEventListener('click', ()=> location.href='/setup.html');
-  $('btnPartnerView').addEventListener('click', async ()=>{
+  const btnEditProfile = $('btnEditProfile'); if (btnEditProfile) btnEditProfile.addEventListener('click', ()=> location.href='/setup.html');
+  const btnPartnerView = $('btnPartnerView');
+  if (btnPartnerView) btnPartnerView.addEventListener('click', async ()=>{
     if(!partnerUid){ toast('Ni partnerja.'); return; }
     const p = await safeGetDoc(['profiles', partnerUid]);
     if(!p){ toast('Profil partnerja ni nastavljen.'); return; }
     alert(`Partner: ${p.username||''}\nBio: ${p.bio||''}`);
   });
 
-  // ------- Notifications -------
-  $('notifBtn').addEventListener('click', async ()=>{
+  // ------- Notifications (browser permission; FCM ni vključen tukaj) -------
+  const notifBtn = $('notifBtn');
+  if (notifBtn) notifBtn.addEventListener('click', async ()=>{
     if(!('Notification' in window)) { toast('Brskalnik ne podpira obvestil'); return; }
     const perm = await Notification.requestPermission(); toast(perm==='granted'? 'Obvestila omogočena' : 'Obvestila onemogočena');
   });
@@ -960,11 +1000,11 @@ const firebaseConfig = {
     loadTodos(); loadNotes(); loadEvents(); loadAlbum();
     toast('Pripravljeno ✨');
   });
-
 </script>
 
 </body>
 </html>
+
 
 
 
