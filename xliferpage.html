@@ -454,7 +454,10 @@
     return parts.map(p=>p[0]?.toUpperCase()||'').join('') || 'U';
   };
 
-  // Vrne UID-je prijateljev (obojsmerno), doda partnerja in mene
+  // ------- Global state -------
+  let me=null, myProfile={}, coupleId=null, partnerUid=null;
+
+  // Vrne UID-je prijateljev (obojsmerno) + partnerja + mene
   async function fetchFriendIds() {
     const mine = me.uid;
     const ids = new Set([mine]);
@@ -466,20 +469,6 @@
     if (partnerUid) ids.add(partnerUid);
     return Array.from(ids);
   }
-
-  // ------- Navigation -------
-  const views = document.querySelectorAll('.view');
-  document.querySelectorAll('.dock button').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      document.querySelectorAll('.dock button').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      const v = btn.getAttribute('data-view');
-      views.forEach(el=> el.classList.toggle('active', el.id===v));
-    });
-  });
-
-  // ------- Global state -------
-  let me=null, myProfile={}, coupleId=null, partnerUid=null;
 
   async function safeGetDoc(pathArr){
     const r = await getDoc(doc(db, ...pathArr));
@@ -517,6 +506,17 @@
     }
   }
 
+  // ------- Navigation -------
+  const views = document.querySelectorAll('.view');
+  document.querySelectorAll('.dock button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.dock button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const v = btn.getAttribute('data-view');
+      views.forEach(el=> el.classList.toggle('active', el.id===v));
+    });
+  });
+
   // ------- Paths & upload -------
   function scopePath(sub){
     return coupleId ? ['couples', coupleId, sub] : ['users', me.uid, sub];
@@ -553,7 +553,6 @@
   let storiesUnsubs = [], postsUnsubs = [];
   const clearUnsubs = (arr)=>{ arr.forEach(u=>u&&u()); arr.length=0; };
 
-  // placeholderji
   function renderEmptyStories(){
     const el = $('stories'); if(!el) return;
     el.innerHTML='';
@@ -571,7 +570,7 @@
     el.appendChild(wrap);
   }
 
-  // ---- STORIES: bere iz GLOBAL /stories po visibleTo
+  // === STORIES: bere iz GLOBAL /stories po visibleTo ===
   function renderStories(){
     const el = $('stories'); if(!el) return;
     clearUnsubs(storiesUnsubs);
@@ -589,7 +588,7 @@
       qs.forEach(d=> items.push({ _id:d.id, ...d.data() }));
 
       const now = Date.now();
-      const active = items.filter(s => !s.expireAt || s.expireAt > now);
+      const active = items.filter(s => !s.expireAt || (s.expireAt?.toMillis?.() || s.expireAt) > now);
 
       el.innerHTML = '';
       if(active.length===0){ renderEmptyStories(); return; }
@@ -598,7 +597,7 @@
         const div = document.createElement('div');
         div.className = 'story';
         div.innerHTML = `<img src="${s.mediaURL}" alt=""><div class="label">${s.authorName||'Uporabnik'}</div>`;
-        div.addEventListener('click', ()=> openStory(s._id));
+        div.addEventListener('click', ()=> openStory?.(s._id));
         el.appendChild(div);
       });
     }, (err)=>{
@@ -609,7 +608,7 @@
     storiesUnsubs.push(unsub);
   }
 
-  // ---- POSTS: bere iz GLOBAL /posts po visibleTo
+  // === POSTS: bere iz GLOBAL /posts po visibleTo ===
   function postCard(pathId, p){
     const wrap = document.createElement('div'); wrap.className='post';
     const dt = fmtDate(p.createdAt);
@@ -638,8 +637,8 @@
         if (span) span.textContent = String(Number(span.textContent||0) + 1);
       }catch(e){ console.error(e); toast('Like ni uspel'); }
     });
-    wrap.querySelector('[data-act="comment"]').addEventListener('click', ()=> openChatForPost(pathId, p));
-    wrap.querySelector('[data-act="share"]').addEventListener('click', ()=> openShare(pathId));
+    wrap.querySelector('[data-act="comment"]').addEventListener('click', ()=> openChatForPost?.(pathId, p));
+    wrap.querySelector('[data-act="share"]').addEventListener('click', ()=> openShare?.(pathId));
     return wrap;
   }
 
@@ -672,7 +671,7 @@
   function openStory(){ toast('Predvajalnik zgodb – WIP'); }
   function openChatForPost(){ toast('Komentarji – WIP'); }
 
-  // ------- SHARE modal (lokalni sort) -------
+  // ------- SHARE modal -------
   function openShare(postId){
     const modal = $('shareModal'); const list = $('shareList');
     if(!modal || !list) return;
@@ -923,14 +922,6 @@
   function setBaseImage(src){ baseImg = new Image(); baseImg.onload = renderStory; baseImg.src = src; }
   const storyFile = $('storyFile'); if (storyFile) storyFile.addEventListener('change', ()=>{ const f=storyFile.files?.[0]; if(f){ setBaseImage(URL.createObjectURL(f)); }});
 
-  // Drag story text
-  if (storyText && storyText.parentElement){
-    let drag=false, dx=0, dy=0; const st=storyText; const wrap=st.parentElement;
-    st.addEventListener('mousedown', (e)=>{ drag=true; dx=e.offsetX; dy=e.offsetY; });
-    document.addEventListener('mouseup', ()=> drag=false);
-    wrap.addEventListener('mousemove', (e)=>{ if(!drag) return; const r=wrap.getBoundingClientRect(); st.style.left=(e.clientX-r.left-dx)+'px'; st.style.top=(e.clientY-r.top-dy)+'px'; renderStory(); });
-  }
-
   const btnOpenCamera = $('btnOpenCamera');
   if (btnOpenCamera) btnOpenCamera.addEventListener('click', async ()=>{
     try{
@@ -988,7 +979,6 @@
     if ($('appAlbum')) $('appAlbum').style.display = app==='album'? 'block' : 'none';
   }));
 
-  // Todos
   function loadTodos(){
     const p = scopePath('todos'); const qy = query(collection(db, ...p), orderBy('createdAt','desc'));
     onSnapshot(qy, (qs)=>{ const list=$('todoList'); if(!list) return; list.innerHTML='';
@@ -1009,7 +999,6 @@
     await addDoc(collection(db, ...scopePath('todos')), { text, done:false, createdAt: serverTimestamp(), by: me.uid });
   });
 
-  // Notes
   function loadNotes(){
     const p = scopePath('notes'); const qy = query(collection(db, ...p), orderBy('createdAt','desc'));
     onSnapshot(qy, (qs)=>{ const list=$('notes'); if(!list) return; list.innerHTML='';
@@ -1029,7 +1018,6 @@
     await addDoc(collection(db, ...scopePath('notes')), { text, createdAt: serverTimestamp(), by: me.uid });
   });
 
-  // Calendar
   function loadEvents(){
     const p = scopePath('events'); const qy = query(collection(db, ...p), orderBy('date','asc'));
     onSnapshot(qy, (qs)=>{ const list=$('events'); if(!list) return; list.innerHTML='';
@@ -1048,7 +1036,6 @@
     await addDoc(collection(db, ...scopePath('events')), { title, date, createdAt: serverTimestamp(), by: me.uid });
   });
 
-  // Album
   function loadAlbum(){
     const p = scopePath('album'); const qy = query(collection(db, ...p), orderBy('createdAt','desc'));
     onSnapshot(qy, (qs)=>{ const grid=$('albumGrid'); if(!grid) return; grid.innerHTML='';
@@ -1110,7 +1097,7 @@
     alert(`Partner: ${p.username||''}\nBio: ${p.bio||''}`);
   });
 
-  // ------- Notifications (browser permission; FCM ni vključen tukaj) -------
+  // ------- Notifications (browser permission) -------
   const notifBtn = $('notifBtn');
   if (notifBtn) notifBtn.addEventListener('click', async ()=>{
     if(!('Notification' in window)) { toast('Brskalnik ne podpira obvestil'); return; }
@@ -1122,7 +1109,12 @@
     if(!user){ location.href='/'; return; }
     me = user;
     await loadMyProfile();
-    renderStories(); renderFeed();
+
+    // Stories + Posts (global+visibleTo)
+    renderStories();
+    renderFeed();
+
+    // Ostalo
     loadConversations();
     loadTodos(); loadNotes(); loadEvents(); loadAlbum();
     toast('Pripravljeno ✨');
@@ -1132,6 +1124,7 @@
 
 </body>
 </html>
+
 
 
 
