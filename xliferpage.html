@@ -216,7 +216,7 @@
     .btn.secondary{background:#1f2937}
     .btn.ghost{background:transparent; border:1px dashed #334155}
     .hint{color:#a1a1aa; font-size:.9rem}
-    .toast{position:fixed; bottom:86px; left:50%; transform:translateX(-50%); background:#0f172a; border:1px solid #1f2937; padding:10px 12px; border-radius:12px; display:none}
+    .toast{position:fixed; bottom:86px; left:50%; z-index: 999; transform:translateX(-50%); background:#0f172a; border:1px solid #1f2937; padding:10px 12px; border-radius:12px; display:none}
     .toast.show{display:block}
   </style>
 </head>
@@ -427,7 +427,7 @@
     authDomain: "chater2-fc480.firebaseapp.com",
     databaseURL: "https://chater2-fc480-default-rtdb.firebaseio.com",
     projectId: "chater2-fc480",
-    storageBucket: "chater2-fc480.appspot.com", // ← popravljeno
+    storageBucket: "chater2-fc480.appspot.com",
     messagingSenderId: "623092508370",
     appId: "1:623092508370:web:08cf5d58c6edcfac096f0b",
     measurementId: "G-5W40WP5YEG"
@@ -453,6 +453,19 @@
     const parts = name.trim().split(/\s+/).slice(0,2);
     return parts.map(p=>p[0]?.toUpperCase()||'').join('') || 'U';
   };
+
+  // Vrne UID-je prijateljev (obojsmerno), doda partnerja in mene
+  async function fetchFriendIds() {
+    const mine = me.uid;
+    const ids = new Set([mine]);
+    const qA = query(collection(db,'friends'), where('a','==', mine));
+    const qB = query(collection(db,'friends'), where('b','==', mine));
+    const [qa, qb] = await Promise.all([getDocs(qA), getDocs(qB)]);
+    qa.forEach(d => ids.add(d.data().b));
+    qb.forEach(d => ids.add(d.data().a));
+    if (partnerUid) ids.add(partnerUid);
+    return Array.from(ids);
+  }
 
   // ------- Navigation -------
   const views = document.querySelectorAll('.view');
@@ -558,52 +571,45 @@
     el.appendChild(wrap);
   }
 
+  // ---- STORIES: bere iz GLOBAL /stories po visibleTo
   function renderStories(){
     const el = $('stories'); if(!el) return;
     clearUnsubs(storiesUnsubs);
     el.innerHTML = '';
-    let hadAny = false;
 
-    // ODSTRANJEN legacy ['stories']
-    const paths = [
-      ['users', me.uid, 'stories'],
-      ...(coupleId ? [['couples', coupleId, 'stories']] : [])
-    ];
+    const qy = query(
+      collection(db, 'stories'),
+      where('visibleTo','array-contains', me.uid),
+      orderBy('createdAt','desc'),
+      limit(30)
+    );
 
-    const buffer = new Map();
-    const commit = ()=>{
-      const items = [...buffer.values()]
-        .filter(s => !s.expireAt || s.expireAt > Date.now())
-        .sort((a,b)=> (b.createdAt?.toMillis?.() || b.createdAt || 0) - (a.createdAt?.toMillis?.() || a.createdAt || 0));
+    const unsub = onSnapshot(qy, (qs)=>{
+      const items = [];
+      qs.forEach(d=> items.push({ _id:d.id, ...d.data() }));
+
+      const now = Date.now();
+      const active = items.filter(s => !s.expireAt || s.expireAt > now);
 
       el.innerHTML = '';
-      if(items.length===0){ renderEmptyStories(); return; }
+      if(active.length===0){ renderEmptyStories(); return; }
 
-      items.forEach(s=>{
+      active.forEach(s=>{
         const div = document.createElement('div');
         div.className = 'story';
         div.innerHTML = `<img src="${s.mediaURL}" alt=""><div class="label">${s.authorName||'Uporabnik'}</div>`;
         div.addEventListener('click', ()=> openStory(s._id));
         el.appendChild(div);
       });
-    };
-
-    paths.forEach(p=>{
-      const qy = query(collection(db, ...p), orderBy('createdAt','desc'), limit(30));
-      const unsub = onSnapshot(qy, (qs)=>{
-        qs.forEach(d=>{
-          hadAny = true;
-          const x = d.data();
-          buffer.set(d.ref.path, { ...x, _id: d.ref.path });
-        });
-        commit();
-      }, (err)=> console.error('stories snapshot err', err));
-      storiesUnsubs.push(unsub);
+    }, (err)=>{
+      console.error('stories snapshot err', err);
+      toast('Stories: preveri pravila ali indeks.');
     });
 
-    setTimeout(()=>{ if(!hadAny && el.children.length===0) renderEmptyStories(); }, 1200);
+    storiesUnsubs.push(unsub);
   }
 
+  // ---- POSTS: bere iz GLOBAL /posts po visibleTo
   function postCard(pathId, p){
     const wrap = document.createElement('div'); wrap.className='post';
     const dt = fmtDate(p.createdAt);
@@ -641,43 +647,32 @@
     const el = $('feed'); if(!el) return;
     clearUnsubs(postsUnsubs);
     el.innerHTML = '';
-    let hadAny = false;
 
-    // ODSTRANJEN legacy ['posts']
-    const paths = [
-      ['users', me.uid, 'posts'],
-      ...(coupleId ? [['couples', coupleId, 'posts']] : [])
-    ];
+    const qy = query(
+      collection(db, 'posts'),
+      where('visibleTo','array-contains', me.uid),
+      orderBy('createdAt','desc'),
+      limit(50)
+    );
 
-    const buffer = new Map();
-    const commit = ()=>{
-      const items = [...buffer.values()]
-        .sort((a,b)=> (b.createdAt?.toMillis?.() || b.createdAt || 0) - (a.createdAt?.toMillis?.() || a.createdAt || 0));
-      el.innerHTML = '';
+    const unsub = onSnapshot(qy, (qs)=>{
+      const items = [];
+      qs.forEach(d=> items.push({ _id:d.id, ...d.data() }));
+      el.innerHTML='';
       if(items.length===0){ renderEmptyFeed(); return; }
-      items.forEach(p => el.appendChild(postCard(p._id, p)));
-    };
-
-    paths.forEach(p=>{
-      const qy = query(collection(db, ...p), orderBy('createdAt','desc'), limit(50));
-      const unsub = onSnapshot(qy, (qs)=>{
-        qs.forEach(d=>{
-          hadAny = true;
-          const x = d.data();
-          buffer.set(d.ref.path, { ...x, _id: d.ref.path });
-        });
-        commit();
-      }, (err)=> console.error('feed snapshot err', err));
-      postsUnsubs.push(unsub);
+      items.forEach(p => el.appendChild(postCard(`posts/${p._id}`, p)));
+    }, (err)=>{
+      console.error('feed snapshot err', err);
+      toast('Feed: preveri pravila ali indeks.');
     });
 
-    setTimeout(()=>{ if(!hadAny && el.children.length===0) renderEmptyFeed(); }, 1200);
+    postsUnsubs.push(unsub);
   }
 
   function openStory(){ toast('Predvajalnik zgodb – WIP'); }
   function openChatForPost(){ toast('Komentarji – WIP'); }
 
-  // ------- SHARE modal (brez indeksa; lokalni sort) -------
+  // ------- SHARE modal (lokalni sort) -------
   function openShare(postId){
     const modal = $('shareModal'); const list = $('shareList');
     if(!modal || !list) return;
@@ -869,16 +864,24 @@
     const mode=t.getAttribute('data-mode'); if ($('postForm')) $('postForm').style.display = (mode==='post')?'block':'none'; if ($('storyForm')) $('storyForm').style.display=(mode==='story')?'block':'none';
   }));
 
+  // OBJAVA: shrani v /users|/couples in GLOBAL /posts z visibleTo
   const btnPublishPost = $('btnPublishPost');
   if (btnPublishPost) btnPublishPost.addEventListener('click', async ()=>{
     try{
-      const f = $('postFile')?.files?.[0]; const caption = ($('postCaption')?.value || '').trim();
+      const fileInput = $('postFile');
+      const f = fileInput?.files?.[0];
+      const caption = ($('postCaption')?.value || '').trim();
       if(!f){ toast('Izberi sliko.'); return; }
+
       const asCouple = !!($('postAsCouple')?.checked && coupleId);
       const { ownerType, ownerId, basePath } = ownerInfo(asCouple);
+
       const dest = `${ownerType==='couple'?'couples':'users'}/${ownerId}/posts/${Date.now()}_${f.name}`;
       const url = await uploadFile(f, dest);
-      await addDoc(collection(db, ...basePath, 'posts'), {
+
+      const visibleTo = await fetchFriendIds();
+
+      const payload = {
         ownerType, ownerId,
         authorUid: me.uid,
         authorName: myProfile?.username || me.displayName || 'Uporabnik',
@@ -886,10 +889,17 @@
         mediaURL: url,
         caption,
         createdAt: serverTimestamp(),
-        likes: 0
-      });
+        likes: 0,
+        visibleTo
+      };
+
+      await Promise.all([
+        addDoc(collection(db, ...basePath, 'posts'), payload),
+        addDoc(collection(db, 'posts'), payload)
+      ]);
+
       toast('Objava objavljena');
-      if ($('postCaption')) $('postCaption').value=''; if ($('postFile')) $('postFile').value='';
+      if ($('postCaption')) $('postCaption').value=''; if (fileInput) fileInput.value='';
     }catch(e){ console.error(e); toast('Objava ni uspela'); }
   });
 
@@ -936,6 +946,7 @@
     }catch(e){ console.error(e); toast('Kamera ni na voljo'); }
   });
 
+  // ZGODBA: shrani v /users|/couples in GLOBAL /stories z visibleTo
   const btnPublishStory = $('btnPublishStory');
   if (btnPublishStory) btnPublishStory.addEventListener('click', async ()=>{
     if(!baseImg || !storyCanvas) { toast('Dodaj sliko ali kamero.'); return; }
@@ -948,15 +959,20 @@
         const file = new File([blob], name, { type:'image/jpeg' });
         const dest = `${ownerType==='couple'?'couples':'users'}/${ownerId}/stories/${name}`;
         const url = await uploadFile(file, dest);
-        const expireAt = Date.now() + 24*60*60*1000;
-        await addDoc(collection(db, ...basePath, 'stories'), {
+        const visibleTo = await fetchFriendIds();
+        const payload = {
           ownerType, ownerId,
           authorUid: me.uid,
           authorName: myProfile?.username||me.displayName||'Uporabnik',
           mediaURL: url,
           createdAt: serverTimestamp(),
-          expireAt
-        });
+          expireAt: Date.now() + 24*60*60*1000,
+          visibleTo
+        };
+        await Promise.all([
+          addDoc(collection(db, ...basePath, 'stories'), payload),
+          addDoc(collection(db, 'stories'), payload)
+        ]);
         toast('Zgodba objavljena');
       }catch(e){ console.error(e); toast('Zgodbe ni uspelo objaviti'); }
     }, 'image/jpeg');
@@ -975,7 +991,7 @@
   // Todos
   function loadTodos(){
     const p = scopePath('todos'); const qy = query(collection(db, ...p), orderBy('createdAt','desc'));
-    onSnapshot(qy, (qs)=>{ const list=$('todoList'); if(!list) return; list.innerHTML=''; 
+    onSnapshot(qy, (qs)=>{ const list=$('todoList'); if(!list) return; list.innerHTML='';
       if(qs.empty){ const n=document.createElement('div'); n.className='hint'; n.textContent='Ni opravil.'; list.appendChild(n); return; }
       qs.forEach(d=>{
         const t=d.data(); const el=document.createElement('div'); el.className='todo';
@@ -996,7 +1012,7 @@
   // Notes
   function loadNotes(){
     const p = scopePath('notes'); const qy = query(collection(db, ...p), orderBy('createdAt','desc'));
-    onSnapshot(qy, (qs)=>{ const list=$('notes'); if(!list) return; list.innerHTML=''; 
+    onSnapshot(qy, (qs)=>{ const list=$('notes'); if(!list) return; list.innerHTML='';
       if(qs.empty){ const n=document.createElement('div'); n.className='hint'; n.textContent='Ni beležk.'; list.appendChild(n); return; }
       qs.forEach(d=>{
         const n=d.data(); const el=document.createElement('div'); el.className='note';
@@ -1016,7 +1032,7 @@
   // Calendar
   function loadEvents(){
     const p = scopePath('events'); const qy = query(collection(db, ...p), orderBy('date','asc'));
-    onSnapshot(qy, (qs)=>{ const list=$('events'); if(!list) return; list.innerHTML=''; 
+    onSnapshot(qy, (qs)=>{ const list=$('events'); if(!list) return; list.innerHTML='';
       if(qs.empty){ const n=document.createElement('div'); n.className='hint'; n.textContent='Ni dogodkov.'; list.appendChild(n); return; }
       qs.forEach(d=>{
         const e=d.data(); const el=document.createElement('div'); el.className='event';
@@ -1112,6 +1128,7 @@
     toast('Pripravljeno ✨');
   });
 </script>
+
 
 </body>
 </html>
