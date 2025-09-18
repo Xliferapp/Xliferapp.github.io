@@ -340,9 +340,24 @@ const firebaseConfig = {
           await linkPartnerByCode(cred.user.uid, code);
         }
         location.href = '/setup.html';
-      }catch(err){ logError.textContent = err.message; }
-    });
+     } catch (err) {
+  console.error('Auth error:', err.code, err.message);
+  regError.textContent = humanAuthError(err); // spodnja funkcija
+}
+
+function humanAuthError(err){
+  switch (err.code) {
+    case 'auth/email-already-in-use': return 'Ta e-pošta je že registrirana.';
+    case 'auth/invalid-email':        return 'E-poštni naslov je neveljaven.';
+    case 'auth/weak-password':        return 'Geslo naj ima vsaj 6 znakov.';
+    case 'auth/network-request-failed': return 'Težava z omrežjem. Preveri povezavo ali adblock.';
+    case 'auth/operation-not-allowed':  return 'Ta način prijave je onemogočen v konzoli.';
+    default: return err.message || 'Prišlo je do napake.';
+  }
+}
+
   </script>
 </body>
 </html>
+
 
