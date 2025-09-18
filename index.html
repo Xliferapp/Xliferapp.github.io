@@ -252,11 +252,12 @@
     }
   }
 
-  async function usernameTaken(username){
-    const qy = query(collection(db, 'profiles'), where('username','==', username));
-    const snap = await getDocs(qy);
-    return !snap.empty;
-  }
+ // PREJ: query(collection(db,'profiles'), where('username','==', username))
+async function usernameTaken(username){
+  // beremo samo usernames/{username} – to je varna, javno berljiva mapa
+  const snap = await getDoc(doc(db, 'usernames', username.toLowerCase()));
+  return snap.exists();
+}
 
   regForm.addEventListener('submit', async (e)=>{
     e.preventDefault(); regError.textContent = '';
@@ -368,4 +369,5 @@
 
 </body>
 </html>
+
 
