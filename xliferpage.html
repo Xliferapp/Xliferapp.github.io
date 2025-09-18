@@ -960,7 +960,183 @@ const firebaseConfig = {
     loadTodos(); loadNotes(); loadEvents(); loadAlbum();
     toast('Pripravljeno ✨');
   });
+/* ===== STORY VIEWER – LIGHTBOX (PASTE JUST ABOVE </script>) ===== */
+
+// 1) v DOM vbrizgamo preprost modal + malo CSS-ja
+(() => {
+  if (document.getElementById('storyLightbox')) return; // že obstaja
+
+  const style = document.createElement('style');
+  style.textContent = `
+    .story-overlay{position:fixed; inset:0; z-index:60; background:rgba(0,0,0,.75); display:none}
+    .story-overlay.active{display:block}
+    .story-box{position:absolute; inset:20px; max-width:920px; margin:auto; background:#0f172a; border:1px solid #1f2937; border-radius:16px; box-shadow:0 20px 60px rgba(0,0,0,.5); display:flex; flex-direction:column}
+    .story-head{display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid #1f2937}
+    .story-head .avatar{width:36px;height:36px;border-radius:10px;background:#0b1220;overflow:hidden;border:1px solid #1f2937}
+    .story-head .avatar img{width:100%;height:100%;object-fit:cover}
+    .story-foot{display:flex; gap:8px; align-items:center; padding:10px 12px; border-top:1px solid #1f2937}
+    .story-media{background:#000; display:grid; place-items:center}
+    .story-media img{max-width:100%; max-height:70vh; display:block}
+    .story-close{margin-left:auto; background:#111827; border:1px solid #1f2937; color:#e5e7eb; border-radius:10px; padding:.4rem .7rem; cursor:pointer}
+    @media (max-width:640px){
+      .story-box{inset:10px}
+      .story-media img{max-height:65vh}
+    }
+  `;
+  document.head.appendChild(style);
+
+  const overlay = document.createElement('div');
+  overlay.id = 'storyLightbox';
+  overlay.className = 'story-overlay';
+  overlay.innerHTML = `
+    <div class="story-box" role="dialog" aria-modal="true" aria-label="Zgodba">
+      <div class="story-head">
+        <div class="avatar"><img id="svAvatar" alt=""></div>
+        <div style="display:grid">
+          <div id="svAuthor" style="font-weight:800">Uporabnik</div>
+          <div id="svTime" class="hint"></div>
+        </div>
+        <button id="svClose" class="story-close" title="Zapri">✕</button>
+      </div>
+      <div class="story-media">
+        <img id="svImg" alt="Zgodba">
+      </div>
+      <div class="story-foot">
+        <div class="hint" id="svHint">Klikni zunaj za zaprtje</div>
+        <button id="svPrev" class="story-close" style="margin-left:auto;display:none">⟨ Prejšnja</button>
+        <button id="svNext" class="story-close" style="display:none">Naslednja ⟩</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+})();
+
+// 2) mini util (varno preberi datum/timestamp)
+function svToDate(v){
+  try{
+    if(v?.toDate) return v.toDate();
+    if(typeof v==='number') return new Date(v);
+    if(typeof v==='string') return new Date(v);
+  }catch(_){}
+  return new Date();
+}
+
+// 3) zbirka ID-jev za preprosto navigacijo (opcionalno)
+//   - ko prvič odpreš story, ustvarimo “lokalni seznam” sorodnih storyjev iz istih poti
+let __svList = [];   // array {path, createdAt}
+let __svIdx = -1;
+
+// 4) helper: zgradi seznam storyjev iz znanih poti (users/me & couples/… & global stories)
+async function svBuildList(currentPath){
+  // poskusi iz enakih poti kot renderStories() (ne zahteva sprememb tvoje funkcije)
+  const paths = [
+    ['users', me.uid, 'stories'],
+    ...(coupleId ? [['couples', coupleId, 'stories']] : []),
+    ['stories']
+  ];
+  const all = [];
+  for(const p of paths){
+    try{
+      const qy = p.length===1
+        ? query(collection(db, p[0]), orderBy('createdAt','desc'), limit(25))
+        : query(collection(db, ...p), orderBy('createdAt','desc'), limit(25));
+      const qs = await getDocs(qy);
+      qs.forEach(d => {
+        const data = d.data();
+        all.push({ path: d.ref.path, createdAt: (data.createdAt?.toMillis?.()||data.createdAt||0) });
+      });
+    }catch(e){ /* ignore */ }
+  }
+  all.sort((a,b)=> b.createdAt - a.createdAt);
+  __svList = all;
+  __svIdx  = Math.max(0, all.findIndex(x => x.path === currentPath));
+}
+
+// 5) prikaz v modal
+async function svShowByPath(pathId){
+  const overlay = document.getElementById('storyLightbox');
+  const imgEl   = document.getElementById('svImg');
+  const aNameEl = document.getElementById('svAuthor');
+  const timeEl  = document.getElementById('svTime');
+  const avaEl   = document.getElementById('svAvatar');
+  const prevBtn = document.getElementById('svPrev');
+  const nextBtn = document.getElementById('svNext');
+
+  try{
+    const ref = doc(db, ...pathId.split('/'));
+    const snap = await getDoc(ref);
+    if(!snap.exists()){
+      toast('Zgodba ne obstaja več.');
+      return;
+    }
+    const s = snap.data();
+    // če je potekla (expireAt), pokaž obvestilo
+    if (s.expireAt && +s.expireAt < Date.now()){
+      toast('Zgodba je potekla.');
+      return;
+    }
+
+    // napolni UI
+    imgEl.src = s.mediaURL;
+    aNameEl.textContent = s.authorName || 'Uporabnik';
+    timeEl.textContent = svToDate(s.createdAt).toLocaleString();
+    avaEl.src = s.authorPhoto || s.authorAvatar || (myProfile?.photoURL || me.photoURL || '');
+
+    // omogoči prev/next, če imamo seznam
+    prevBtn.style.display = (__svList.length>1) ? 'inline-block' : 'none';
+    nextBtn.style.display = (__svList.length>1) ? 'inline-block' : 'none';
+
+    overlay.classList.add('active');
+  }catch(e){
+    console.error('story open err', e);
+    toast('Napaka pri odpiranju zgodbe');
+  }
+}
+
+// 6) javna funkcija, ki jo tvoj feed/stories že kliče: openStory(pathId)
+//    (zamenjamo prejšnji placeholder)
+async function openStory(pathId){
+  // zgradi seznam (enkratno na odpiranje), da lahko klikaš naprej/nazaj
+  await svBuildList(pathId);
+  await svShowByPath(pathId);
+}
+
+// 7) close + navigacija + ESC
+(() => {
+  const overlay = document.getElementById('storyLightbox');
+  const closeBtn= document.getElementById('svClose');
+  const prevBtn = document.getElementById('svPrev');
+  const nextBtn = document.getElementById('svNext');
+
+  function close(){ overlay.classList.remove('active'); }
+
+  overlay.addEventListener('click', (e)=>{
+    // klik na ozadje (ne na škatlo)
+    const box = overlay.querySelector('.story-box');
+    if(!box.contains(e.target)) close();
+  });
+  closeBtn.addEventListener('click', close);
+  document.addEventListener('keydown', (e)=>{
+    if(!overlay.classList.contains('active')) return;
+    if(e.key === 'Escape') close();
+    if(e.key === 'ArrowLeft' && __svList.length>1) prevBtn.click();
+    if(e.key === 'ArrowRight' && __svList.length>1) nextBtn.click();
+  });
+
+  prevBtn.addEventListener('click', async ()=>{
+    if(__svList.length<2) return;
+    __svIdx = (__svIdx - 1 + __svList.length) % __svList.length;
+    await svShowByPath(__svList[__svIdx].path);
+  });
+  nextBtn.addEventListener('click', async ()=>{
+    if(__svList.length<2) return;
+    __svIdx = (__svIdx + 1) % __svList.length;
+    await svShowByPath(__svList[__svIdx].path);
+  });
+})();
+   
 </script>
 
 </body>
 </html>
+
