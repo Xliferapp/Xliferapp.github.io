@@ -1,761 +1,966 @@
 <!DOCTYPE html>
 <html lang="sl">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Xlifer – Domov PRO</title>
-  <meta name="description" content="Xlifer Pro: aplikacija za pare in prijatelje, zgodbe, objave, klepeti z deljenjem, aplikacije, profil, klici prek WebRTC." />
+  <title>Xlifer – Domov</title>
+  <meta name="description" content="Xlifer domov: zgodbe, objave, prijatelji in pogovori, ustvarjanje objav/zgodb, skupne aplikacije (to‑do, beležke, koledar, album) ter profil & nastavitve." />
   <link rel="icon" href="/favicon.ico" />
   <style>
     :root{
-      --bg:#0b0f14; --surface:#0f172a; --card:#111827e6;
-      --text:#f3f4f6; --muted:#9ca3af;
-      --brand:#60a5fa; --brand2:#34d399;
-      --danger:#ef4444; --ok:#22c55e; --warn:#f59e0b;
+      --bg:#0b0f14; --surface:#0f172a; --card:#111827cc; --text:#e5e7eb; --muted:#9ca3af; --brand:#60a5fa; --brand2:#34d399; --danger:#ef4444; --ok:#22c55e;
       --ring:0 0 0 3px rgba(96,165,250,.35);
     }
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Arial;
-      background:var(--bg);color:var(--text);overflow-x:hidden;
-      -webkit-tap-highlight-color:transparent}
-    header{position:sticky;top:0;background:#0b0f1499;
-      backdrop-filter:blur(10px);z-index:10;padding:12px 20px;
-      display:flex;align-items:center;justify-content:space-between;
-      border-bottom:1px solid #1f2937}
-    .logo{display:flex;gap:.6rem;align-items:center;font-weight:800}
-    .logo-mark{width:28px;height:28px;border-radius:8px;
-      background:linear-gradient(135deg,var(--brand),var(--brand2));
-      box-shadow:0 6px 18px rgba(52,211,153,.35)}
-    main{padding:16px; padding-bottom:92px; animation:fade .3s ease}
-    @keyframes fade{from{opacity:.0;transform:translateY(6px)}
-      to{opacity:1;transform:translateY(0)}}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0; font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; color:var(--text); background:radial-gradient(1200px 800px at 80% -10%, #1f2937 0%, transparent 60%), var(--bg)}
+    a{color:inherit; text-decoration:none}
 
-    /* Stories & Feed */
-    .stories{display:flex;gap:12px;overflow-x:auto;padding:10px 0}
-    .story{flex:0 0 80px;height:120px;border-radius:14px;
-      background:var(--card);border:1px solid #1f2937;
-      display:flex;align-items:center;justify-content:center;
-      font-weight:700;cursor:pointer;transition:.25s transform}
-    .story:hover{transform:scale(1.05)}
-    .story img{width:100%;height:100%;object-fit:cover;border-radius:14px}
-    .feed{display:grid;gap:16px;margin-top:16px}
-    .post{background:var(--card);border:1px solid #1f2937;border-radius:16px;
-      overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.25)}
-    .post .head{display:flex;gap:10px;align-items:center;padding:10px}
-    .avatar{width:36px;height:36px;border-radius:999px;overflow:hidden;
-      border:1px solid #1f2937;flex-shrink:0}
-    .post img{width:100%;height:auto;display:block}
-    .post .meta{color:#cbd5e1;font-size:.85rem}
-    .post .actions{display:flex;gap:10px;padding:10px}
-    .btn{appearance:none;border:0;border-radius:12px;padding:.5rem .8rem;
-      font-weight:600;cursor:pointer;background:#1f2937;color:#e5e7eb;
-      transition:.2s}
-    .btn:hover{opacity:.9}
-    .btn.primary{background:linear-gradient(180deg,var(--brand),#2563eb);color:#fff}
+    header{position:sticky; top:0; z-index:20; backdrop-filter:saturate(160%) blur(10px); background:#0b0f1499; border-bottom:1px solid #1f2937}
+    header .inner{display:flex; align-items:center; justify-content:space-between; height:56px; padding:0 16px}
+    .logo{display:flex; gap:.6rem; align-items:center; font-weight:800}
+    .logo-mark{width:24px;height:24px;border-radius:8px;background:linear-gradient(135deg,var(--brand),var(--brand2)); box-shadow:0 6px 18px rgba(52,211,153,.35)}
+    .top-actions{display:flex; gap:8px}
+    .iconbtn{display:grid; place-items:center; width:38px; height:38px; border-radius:12px; background:#0f172a; border:1px solid #1f2937; cursor:pointer}
+
+    main{padding:14px 12px 84px; max-width:980px; margin:0 auto}
+    .view{display:none}
+    .view.active{display:block}
+
+    /* Stories */
+    .stories{display:flex; gap:10px; overflow:auto; padding-bottom:8px}
+    .story{min-width:92px; height:146px; border-radius:16px; background:#0f172a; border:1px solid #1f2937; position:relative; overflow:hidden; cursor:pointer}
+    .story img{width:100%; height:100%; object-fit:cover}
+    .story .label{position:absolute; bottom:6px; left:6px; right:6px; background:rgba(0,0,0,.45); border-radius:10px; padding:4px 6px; font-size:.85rem}
+
+    /* Feed */
+    .feed{display:grid; gap:12px; margin-top:10px}
+    .post{background:var(--card); border:1px solid #1f2937; border-radius:16px; overflow:hidden}
+    .post-head{display:flex; align-items:center; gap:10px; padding:10px}
+    .avatar{width:40px; height:40px; border-radius:12px; background:#0f172a; border:1px solid #1f2937; overflow:hidden}
+    .avatar img{width:100%; height:100%; object-fit:cover}
+    .post-media{background:#000}
+    .post-media img{width:100%; display:block}
+    .post-actions{display:flex; gap:8px; padding:8px 10px; align-items:center}
+    .chip{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:12px; background:#0f172a; border:1px solid #1f2937; cursor:pointer}
 
     /* Friends */
-    .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
-    .threads{display:grid;gap:10px}
-    .thread{display:flex;align-items:center;gap:10px;padding:10px;
-      background:#0f172a;border:1px solid #1f2937;border-radius:14px;transition:.2s}
-    .thread:hover{background:#1e293b}
-    .thread .meta{flex:1}
-    .heart{width:28px;height:28px;border-radius:999px;display:grid;
-      place-items:center;cursor:pointer;border:1px solid #1f2937;transition:.2s}
-    .heart.active{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff}
-
-    /* Create */
-    .composer{background:var(--card);border:1px solid #1f2937;
-      border-radius:16px;padding:12px;display:grid;gap:10px}
-    .toggle{display:inline-flex;background:#0b1320;border:1px solid #1f2937;
-      border-radius:999px;overflow:hidden}
-    .toggle button{border:0;padding:.5rem .9rem;background:transparent;
-      color:#cbd5e1;cursor:pointer}
-    .toggle button.active{background:linear-gradient(180deg,var(--brand),#2563eb);color:#fff}
-    .canvas{height:280px;background:#0f172a;border:1px dashed #334155;
-      border-radius:14px;display:grid;place-items:center;position:relative;overflow:hidden}
-    .canvas img{max-width:100%;max-height:100%}
-    .floating-text{position:absolute;top:40%;left:40%;
-      padding:.2rem .4rem;background:#0006;border-radius:8px;cursor:move}
-
-    /* Apps */
-    .tabs{display:flex;gap:8px;overflow-x:auto;padding:6px}
-    .tabs button{border:0;background:#1f2937;color:#e5e7eb;padding:.5rem .8rem;
-      border-radius:10px;cursor:pointer;white-space:nowrap}
-    .tabs button.active{background:linear-gradient(180deg,var(--brand),#2563eb)}
-    .panel{background:var(--card);border:1px solid #1f2937;
-      border-radius:16px;padding:12px}
-
-    /* Profile */
-    .profile{display:grid;gap:12px}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    @media (max-width:740px){.row{grid-template-columns:1fr}}
-    .kebab{position:relative}
-    .menu{position:absolute;right:0;top:110%;background:#0f172a;
-      border:1px solid #1f2937;border-radius:12px;padding:8px;
-      display:none;z-index:20}
-    .menu.active{display:block}
+    .banner{position:sticky; top:56px; z-index:15; background:#0b0f1499; backdrop-filter:saturate(160%) blur(10px); border-bottom:1px solid #1f2937; padding:8px 12px}
+    .banner .row{display:flex; gap:8px; flex-wrap:wrap}
+    .input{padding:.7rem .9rem; border-radius:12px; border:1px solid #1f2937; background:#0f172a; color:var(--text)}
+    .convos{display:grid; gap:8px; padding-top:10px}
+    .convo{background:var(--card); border:1px solid #1f2937; border-radius:16px; padding:10px; display:flex; gap:10px; align-items:center; cursor:pointer}
+    .convo .name{font-weight:700}
+    .spacer{flex:1}
+    .heart{width:34px; height:34px; border-radius:10px; display:grid; place-items:center; border:1px solid #1f2937; background:#0f172a; cursor:pointer}
+    .heart.active{background:linear-gradient(135deg, var(--brand), var(--brand2))}
 
     /* Chat */
-    .modal{position:fixed;inset:0;background:#0009;display:none;
-      align-items:center;justify-content:center;z-index:60}
-    .modal.active{display:flex}
-    .chat{width:min(920px,92vw);height:min(85vh,720px);
-      background:#0f172a;border:1px solid #1f2937;border-radius:16px;
-      display:grid;grid-template-rows:auto 1fr auto}
-    .chat header{display:flex;align-items:center;justify-content:space-between;
-      padding:10px;border-bottom:1px solid #1f2937}
-    .msgs{overflow-y:auto;padding:10px;display:grid;gap:8px}
-    .msg{max-width:70%;padding:.6rem .8rem;border-radius:14px;background:#111827}
-    .msg.me{margin-left:auto;background:linear-gradient(180deg,#1f3b7a,#1e40af)}
-    .chat footer{display:flex;gap:8px;padding:10px;border-top:1px solid #1f2937}
+    .chat{position:fixed; inset:56px 0 74px; z-index:25; background:rgba(0,0,0,.55); display:none}
+    .chat.active{display:block}
+    .chat .box{position:absolute; inset:10px; background:#0f172a; border:1px solid #1f2937; border-radius:16px; display:flex; flex-direction:column}
+    .chat-head{display:flex; gap:8px; align-items:center; padding:10px; border-bottom:1px solid #1f2937}
+    .chat-body{flex:1; overflow:auto; padding:10px; display:grid; gap:8px}
+    .msg{max-width:70%; padding:8px 10px; border-radius:12px; background:#111827; border:1px solid #1f2937}
+    .me{margin-left:auto; background:linear-gradient(135deg, #1f2937, #111827)}
+    .chat-input{display:flex; gap:8px; padding:10px; border-top:1px solid #1f2937}
+    .chat-input input{flex:1}
+
+    /* Create */
+    .create{display:grid; gap:12px}
+    .tabs{display:flex; gap:8px}
+    .tab{padding:.5rem .8rem; border-radius:999px; border:1px solid #1f2937; background:#0f172a; cursor:pointer}
+    .tab.active{background:linear-gradient(135deg,var(--brand),var(--brand2))}
+    .canvas-wrap{position:relative; border:1px dashed #334155; border-radius:16px; overflow:hidden; min-height:280px; display:grid; place-items:center; background:#000}
+    #storyCanvas{max-width:100%; max-height:420px}
+    .storyText{position:absolute; top:20px; left:20px; min-width:80px; padding:6px 8px; background:rgba(0,0,0,.4); border:1px solid #1f2937; border-radius:10px; color:#fff}
+
+    /* Apps */
+    .app-tabs{display:flex; gap:8px; margin-bottom:10px}
+    .app-tab{padding:.5rem .8rem; border-radius:10px; background:#0f172a; border:1px solid #1f2937; cursor:pointer}
+    .app-tab.active{background:linear-gradient(135deg,var(--brand),var(--brand2))}
+    .todo-list{display:grid; gap:8px}
+    .todo{display:flex; align-items:center; gap:8px; background:var(--card); border:1px solid #1f2937; border-radius:12px; padding:8px}
+    .note{background:var(--card); border:1px solid #1f2937; border-radius:12px; padding:10px}
+    .events{display:grid; gap:8px}
+    .event{background:var(--card); border:1px solid #1f2937; border-radius:12px; padding:10px}
+    .album{display:grid; grid-template-columns:repeat(auto-fill, minmax(120px,1fr)); gap:8px}
+    .album img{width:100%; height:120px; object-fit:cover; border-radius:10px; border:1px solid #1f2937}
+
+    /* Profile */
+    .profile-card{background:var(--card); border:1px solid #1f2937; border-radius:16px; padding:12px; display:grid; gap:10px}
+    .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+    .joint{display:flex; gap:10px; align-items:center}
+    .joint .avatar{width:56px; height:56px; border-radius:14px}
 
     /* Dock */
-    .dock{position:fixed;bottom:12px;left:0;right:0;display:flex;
-      justify-content:center;z-index:50}
-    .dock-inner{display:flex;gap:10px;background:#0b1320;
-      backdrop-filter:blur(10px);border:1px solid #1f2937;border-radius:20px;padding:8px}
-    .dock button{appearance:none;border:0;background:transparent;color:#cbd5e1;
-      padding:.5rem .8rem;border-radius:12px;display:flex;gap:6px;align-items:center;
-      cursor:pointer;font-size:14px}
-    .dock button.active{background:linear-gradient(135deg,var(--brand),var(--brand2));color:white}
+    .dock{position:fixed; bottom:0; left:0; right:0; z-index:30; background:#0b0f1499; backdrop-filter:saturate(160%) blur(10px); border-top:1px solid #1f2937}
+    .dock-inner{max-width:980px; margin:0 auto; display:grid; grid-template-columns:repeat(5,1fr)}
+    .dock button{appearance:none; border:0; background:transparent; height:74px; display:grid; place-items:center; color:#aab1bf; cursor:pointer}
+    .dock button.active{color:#fff}
 
-    .toast{position:fixed;left:12px;bottom:84px;background:#0b1320cc;
-      border:1px solid #1f2937;color:#fff;padding:10px 12px;border-radius:12px;
-      max-width:70vw;z-index:200;display:none}
+    /* Utilities */
+    .input, input[type="text"], input[type="url"], input[type="date"], input[type="file"], textarea{padding:.7rem .9rem; border-radius:12px; border:1px solid #1f2937; background:#0f172a; color:var(--text)}
+    .btn{appearance:none; border:0; border-radius:12px; padding:.6rem .9rem; background:linear-gradient(135deg,var(--brand),#2563eb); color:#fff; font-weight:800; cursor:pointer}
+    .btn.secondary{background:#1f2937}
+    .btn.ghost{background:transparent; border:1px dashed #334155}
+    .hint{color:#a1a1aa; font-size:.9rem}
+    .toast{position:fixed; bottom:86px; left:50%; transform:translateX(-50%); background:#0f172a; border:1px solid #1f2937; padding:10px 12px; border-radius:12px; display:none}
     .toast.show{display:block}
   </style>
 </head>
 <body>
   <header>
-    <div class="logo"><div class="logo-mark"></div><span>Xlifer</span></div>
-    <div id="topTitle">Domov</div>
+    <div class="inner">
+      <div class="logo"><div class="logo-mark"></div><span>Xlifer</span></div>
+      <div class="top-actions">
+        <button id="notifBtn" class="iconbtn" title="Obvestila">
+          <span>🔔</span>
+        </button>
+      </div>
+    </div>
   </header>
 
-  <!-- HOME -->
-  <main id="view-home">
-    <div class="stories" id="stories"><div class="story">+</div></div>
-    <div class="feed" id="feed"></div>
-  </main>
-    <!-- FRIENDS -->
-  <main id="view-friends" style="display:none">
-    <div class="toolbar">
-      <div class="grow"><input id="friendSearch" type="search" placeholder="Išči… (ime, @username)"></div>
-      <button id="fltName" class="btn">A-Ž</button>
-      <button id="fltTime" class="btn">Čas</button>
-      <button id="fltFreq" class="btn">Pogostost</button>
-      <button id="btnNewChat" class="btn primary">+ Nova grupa/pogovor</button>
-      <button id="btnPartnerChat" class="btn" title="Zasebni klepet s partnerjem">❤ Partner</button>
-      <button id="btnAddFriend" class="btn">+ Dodaj prijatelja</button>
-    </div>
-    <div class="threads" id="threads"></div>
-  </main>
+  <main>
+    <!-- HOME view -->
+    <section id="vHome" class="view active" aria-label="Domov">
+      <div class="stories" id="stories"></div>
+      <div class="feed" id="feed"></div>
+    </section>
 
-  <!-- CREATE -->
-  <main id="view-create" style="display:none">
-    <div class="composer">
-      <div class="toggle">
-        <button id="modePost" class="active" type="button">Objava</button>
-        <button id="modeStory" type="button">Zgodba</button>
+    <!-- FRIENDS view -->
+    <section id="vFriends" class="view" aria-label="Prijatelji in pogovori">
+      <div class="banner">
+        <div class="row">
+          <input id="convFilter" class="input" placeholder="Filter po imenu…" />
+          <select id="convSort" class="input">
+            <option value="recent">Najnovejše</option>
+            <option value="name">Po imenu</option>
+            <option value="active">Najbolj aktivni</option>
+          </select>
+          <button id="btnNewConvo" class="btn">+ Nova grupa/pogovor</button>
+          <button id="btnPartnerChat" class="btn secondary">❤️ Partner</button>
+          <button id="btnAddFriend" class="btn ghost">+ Dodaj prijatelja</button>
+        </div>
       </div>
-      <div class="row">
-        <input id="imageFile" type="file" accept="image/*"/>
-        <label class="btn"><input id="asCouple" type="checkbox" style="accent-color:#2563eb"> Objavi kot par</label>
-      </div>
-      <div class="row">
-        <select id="filterSelect">
-          <option value="none">Brez filtra</option>
-          <option value="grayscale(1)">Črno-belo</option>
-          <option value="contrast(1.3) saturate(1.2)">Kontrast + barve</option>
-          <option value="sepia(.5) saturate(1.3)">Retro</option>
-          <option value="blur(1px) brightness(1.1)">Soft</option>
-        </select>
-        <input id="caption" type="text" placeholder="Opis (za objavo)…"/>
-      </div>
-      <div class="canvas" id="canvas">
-        <img id="canvasImg" alt="predogled"/>
-        <div id="floatingText" class="floating-text" contenteditable="true" hidden>Premakni me ✍️</div>
-      </div>
-      <div style="display:flex;gap:8px">
-        <button id="publishBtn" class="btn primary">Objavi</button>
-        <button id="clearBtn" class="btn">Počisti</button>
-      </div>
-    </div>
-  </main>
+      <div class="convos" id="convos"></div>
+    </section>
 
-  <!-- APPS -->
-  <main id="view-apps" style="display:none">
-    <div class="tabs">
-      <button class="active" data-tab="todo">To-Do</button>
-      <button data-tab="notes">Beležke</button>
-      <button data-tab="calendar">Koledar</button>
-      <button data-tab="album">Album</button>
-    </div>
-    <div id="tab-todo" class="panel"></div>
-    <div id="tab-notes" class="panel" style="display:none"></div>
-    <div id="tab-calendar" class="panel" style="display:none"></div>
-    <div id="tab-album" class="panel" style="display:none"></div>
-  </main>
+    <!-- CREATE view -->
+    <section id="vCreate" class="view" aria-label="Ustvari">
+      <div class="tabs">
+        <button class="tab active" data-mode="post">Objava</button>
+        <button class="tab" data-mode="story">Zgodba</button>
+      </div>
+      <div class="create" id="createWrap">
+        <div id="postForm">
+          <input id="postCaption" class="input" placeholder="Napiši opis objave…" />
+          <input id="postFile" type="file" accept="image/*" class="input" />
+          <div class="row">
+            <label class="row" style="gap:8px"><input type="checkbox" id="postAsCouple" /> Objavi kot par</label>
+            <span class="spacer"></span>
+            <button id="btnPublishPost" class="btn">Objavi</button>
+          </div>
+        </div>
+        <div id="storyForm" style="display:none">
+          <div class="row" style="align-items:center">
+            <input id="storyFile" type="file" accept="image/*" class="input" />
+            <button id="btnOpenCamera" class="btn secondary">📷 Kamera</button>
+            <select id="filterSelect" class="input">
+              <option value="none">Brez filtra</option>
+              <option value="grayscale(1)">ČB</option>
+              <option value="sepia(1)">Sepia</option>
+              <option value="contrast(1.3) saturate(1.2)">Kontrast</option>
+              <option value="blur(1px) brightness(1.1)">Soft</option>
+            </select>
+            <label class="row" style="gap:8px"><input type="checkbox" id="storyAsCouple" /> Zgodba kot par</label>
+          </div>
+          <div class="canvas-wrap"><canvas id="storyCanvas"></canvas><div id="storyText" class="storyText" contenteditable>Premakni in napiši…</div></div>
+          <div class="row" style="justify-content:flex-end">
+            <button id="btnPublishStory" class="btn">Objavi zgodbo</button>
+          </div>
+          <video id="camera" autoplay playsinline style="display:none; width:100%"></video>
+        </div>
+      </div>
+    </section>
 
-  <!-- PROFILE -->
-  <main id="view-profile" style="display:none">
-    <div class="profile">
-      <div class="row">
-        <div style="display:flex;gap:10px;align-items:center" class="panel">
-          <div class="avatar" style="width:72px;height:72px"><img id="meAvatar" alt="jaz"/></div>
+    <!-- APPS view -->
+    <section id="vApps" class="view" aria-label="Aplikacije">
+      <div class="app-tabs">
+        <button class="app-tab active" data-app="todos">To‑Do</button>
+        <button class="app-tab" data-app="notes">Beležke</button>
+        <button class="app-tab" data-app="calendar">Koledar</button>
+        <button class="app-tab" data-app="album">Album</button>
+      </div>
+
+      <div id="appTodos">
+        <div class="row">
+          <input id="todoInput" class="input" placeholder="Dodaj opravilo…" />
+          <button id="btnAddTodo" class="btn">Dodaj</button>
+        </div>
+        <div id="todoList" class="todo-list"></div>
+      </div>
+
+      <div id="appNotes" style="display:none">
+        <div class="row">
+          <input id="noteInput" class="input" placeholder="Nova beležka…" />
+          <button id="btnAddNote" class="btn">Shrani</button>
+        </div>
+        <div id="notes" class="list"></div>
+      </div>
+
+      <div id="appCalendar" style="display:none">
+        <div class="row">
+          <input id="eventTitle" class="input" placeholder="Naslov dogodka" />
+          <input id="eventDate" type="date" class="input" />
+          <button id="btnAddEvent" class="btn">Dodaj</button>
+        </div>
+        <div id="events" class="events"></div>
+      </div>
+
+      <div id="appAlbum" style="display:none">
+        <div class="row">
+          <input id="albumFile" type="file" accept="image/*" class="input" />
+          <button id="btnAddPhoto" class="btn">Naloži</button>
+        </div>
+        <div id="albumGrid" class="album"></div>
+      </div>
+    </section>
+
+    <!-- PROFILE view -->
+    <section id="vProfile" class="view" aria-label="Profil in nastavitve">
+      <div class="profile-card">
+        <div class="row">
+          <div class="avatar"><img id="meAvatar" alt=""/></div>
           <div>
-            <div style="font-weight:800" id="meName">—</div>
-            <div class="meta" id="meEmail">—</div>
+            <div id="meName" style="font-weight:800">Uporabnik</div>
+            <div id="meEmail" class="hint">email</div>
+          </div>
+          <span class="spacer"></span>
+          <button id="menuBtn" class="iconbtn" title="Več">⋯</button>
+        </div>
+        <div class="joint">
+          <div class="avatar"><img id="jointAvatar" alt=""/></div>
+          <div>
+            <div class="hint">Skupna profilna slika (vidna pri dodajanju prijateljev)</div>
+            <div class="row">
+              <input id="jointFile" type="file" accept="image/*" class="input" />
+              <button id="btnSaveJoint" class="btn">Shrani</button>
+            </div>
           </div>
         </div>
-        <div class="panel kebab" style="text-align:right">
-          <button id="kebabBtn" class="btn">⋯</button>
-          <div id="kebabMenu" class="menu">
-            <div class="muted" style="margin-bottom:6px">Koda za linkanje:</div>
-            <code id="partnerCode">—</code>
-          </div>
+        <div class="row">
+          <button id="btnEditProfile" class="btn secondary">Uredi osebni profil</button>
+          <button id="btnPartnerView" class="btn ghost">Prikaži partnerjev profil</button>
         </div>
       </div>
-
-      <div class="panel">
-        <h3>Uredi profil</h3>
-        <div class="row">
-          <input id="pName" type="text" placeholder="Ime"/>
-          <input id="pWeb" type="url" placeholder="Spletna stran"/>
-        </div>
-        <div class="row">
-          <input id="pIG" type="text" placeholder="Instagram"/>
-          <input id="pFB" type="text" placeholder="Facebook"/>
-        </div>
-        <div class="row">
-          <input id="pSC" type="text" placeholder="Snapchat"/>
-          <input id="pDOB" type="date" placeholder="Rojstni datum"/>
-        </div>
-        <textarea id="pBio" placeholder="O meni" style="min-height:110px;margin-top:8px"></textarea>
-        <div style="display:flex;gap:8px;margin-top:8px">
-          <button id="saveProfile" class="btn primary">💾 Shrani</button>
-          <button id="logout" class="btn">Odjava</button>
-        </div>
-      </div>
-
-      <div class="panel">
-        <h3>Par – skupna slika</h3>
-        <input id="coupleAvatarFile" type="file" accept="image/*"/>
-        <div style="display:flex;gap:10px;align-items:center;margin-top:6px">
-          <div class="avatar" style="width:96px;height:96px"><img id="coupleAvatar" alt="par"/></div>
-          <button id="uploadCoupleAvatar" class="btn">📷 Naloži skupno</button>
-          <button id="refreshCode" class="btn">🔄 Koda</button>
-          <button id="copyCode" class="btn">📋 Kopiraj</button>
-        </div>
-        <div class="muted" style="margin-top:6px">
-          V seznamih prijateljev se vidi tvoja + skupna slika (ne partnerjeva osebna).
-        </div>
-      </div>
-    </div>
+    </section>
   </main>
 
-  <!-- CHAT -->
-  <div id="chatModal" class="modal">
-    <div class="chat">
-      <header>
-        <div id="chatTitle">Klepet</div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <div id="chatShareToggle" class="heart" title="Deli ta klepet s partnerjem">❤</div>
-          <button id="callBtn" class="btn">📞</button>
-          <button id="videoBtn" class="btn">🎥</button>
-          <button id="chatClose" class="btn">Zapri</button>
-        </div>
-      </header>
-      <div id="chatMsgs" class="msgs"></div>
-      <footer>
-        <input id="chatInput" type="text" placeholder="Napiši sporočilo…"/>
-        <button id="chatSend" class="btn primary">Pošlji</button>
-      </footer>
+  <!-- Chat modal -->
+  <div id="chatModal" class="chat" role="dialog" aria-modal="true">
+    <div class="box">
+      <div class="chat-head">
+        <button id="chatClose" class="iconbtn">✕</button>
+        <div class="avatar"><img id="chatAvatar" alt=""/></div>
+        <div style="font-weight:800" id="chatTitle">Pogovor</div>
+        <span class="spacer"></span>
+        <button id="chatHeart" class="heart" title="Dovoli partnerju dostop">❤️</button>
+      </div>
+      <div id="chatBody" class="chat-body"></div>
+      <div class="chat-input">
+        <input id="chatInput" class="input" placeholder="Napiši sporočilo…" />
+        <button id="chatSend" class="btn">Pošlji</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast">OK</div>
+
+  <!-- Share modal (very light) -->
+  <div id="shareModal" class="chat" role="dialog" aria-modal="true" style="z-index:26">
+    <div class="box">
+      <div class="chat-head">
+        <button id="shareClose" class="iconbtn">✕</button>
+        <div style="font-weight:800">Posreduj prijateljem</div>
+      </div>
+      <div class="chat-body" id="shareList"></div>
     </div>
   </div>
 
   <!-- Dock -->
-  <nav class="dock">
+  <nav class="dock" aria-label="Spodnja navigacija">
     <div class="dock-inner">
-      <button data-view="home" class="active">🏠 Domov</button>
-      <button data-view="friends">👥 Friends</button>
-      <button data-view="create">➕ Ustvari</button>
-      <button data-view="apps">🗂️ Aplikacije</button>
-      <button data-view="profile">👤 Profil</button>
+      <button data-view="vHome" class="active">🏠<div class="hint">Home</div></button>
+      <button data-view="vFriends">👥<div class="hint">Friends</div></button>
+      <button data-view="vCreate">➕<div class="hint">Ustvari</div></button>
+      <button data-view="vApps">🧩<div class="hint">Aplikacije</div></button>
+      <button data-view="vProfile">👤<div class="hint">Profil</div></button>
     </div>
   </nav>
 
-  <div id="toast" class="toast"></div>
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { 
-    getFirestore, doc, setDoc, getDoc, addDoc, updateDoc, 
-    collection, query, orderBy, onSnapshot, serverTimestamp, arrayUnion 
-  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-  import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+ <script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+  import { getAuth, onAuthStateChanged, updateProfile } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+  import {
+    initializeFirestore, doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc, collection,
+    query, where, orderBy, limit, onSnapshot, serverTimestamp, increment,
+    arrayUnion, arrayRemove, getDocs
+  } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+  import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
 
-  // Firebase config
-  const firebaseConfig = {
-    apiKey: "AIzaSyCaKT0CCg1xNJanG4-6Pox2UaH_1rSL3M0",
-    authDomain: "chater2-fc480.firebaseapp.com",
-    projectId: "chater2-fc480",
-    storageBucket: "chater2-fc480.appspot.com",
-    messagingSenderId: "623092508370",
-    appId: "1:623092508370:web:08cf5d58c6edcfac096f0b"
-  };
-
-  // Init
+  // ------- Firebase config (storageBucket popravljen) -------
+ // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyCaKT0CCg1xNJanG4-6Pox2UaH_1rSL3M0",
+  authDomain: "chater2-fc480.firebaseapp.com",
+  databaseURL: "https://chater2-fc480-default-rtdb.firebaseio.com",
+  projectId: "chater2-fc480",
+  storageBucket: "chater2-fc480.firebasestorage.app",
+  messagingSenderId: "623092508370",
+  appId: "1:623092508370:web:08cf5d58c6edcfac096f0b",
+  measurementId: "G-5W40WP5YEG"
+};
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
-  const db = getFirestore(app);
+  const db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true, useFetchStreams: false });
   const storage = getStorage(app);
 
-  const toast = document.getElementById("toast");
-  function showToast(msg) {
-    toast.textContent = msg;
-    toast.classList.add("show");
-    setTimeout(() => toast.classList.remove("show"), 3000);
-  }
-
-  // ==================== AUTH ====================
-  onAuthStateChanged(auth, user => {
-    if (!user) return location.href = "/index.html";
-    loadFeed();
-    loadThreads(user.uid);
-  });
-  document.getElementById("logout").addEventListener("click", () => signOut(auth));
-
-  // ==================== FEED ====================
-  async function loadFeed() {
-    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
-    onSnapshot(q, snap => {
-      const feed = document.getElementById("feed");
-      feed.innerHTML = "";
-      snap.forEach(docSnap => {
-        const post = docSnap.data();
-        const postId = docSnap.id;
-        const el = document.createElement("div");
-        el.className = "post";
-        el.innerHTML = `
-          <div class="head">
-            <div class="avatar"><img src="${post.authorAvatar || ''}" alt=""/></div>
-            <div><strong>${post.authorName}</strong>
-              <div class="meta">${post.createdAt?.seconds ? new Date(post.createdAt.seconds*1000).toLocaleString() : ""}</div>
-            </div>
-          </div>
-          ${post.image ? `<img src="${post.image}" alt="slika"/>` : ""}
-          <div style="padding:10px">${post.caption || ""}</div>
-          <div class="actions">
-            <button class="btn likeBtn">❤️ ${post.likes?.length || 0}</button>
-            <button class="btn commentBtn">💬 ${post.comments?.length || 0}</button>
-            <button class="btn shareBtn">↗️</button>
-          </div>
-          <div class="comments"></div>
-        `;
-
-        // like
-        el.querySelector(".likeBtn").addEventListener("click", async () => {
-          const uid = auth.currentUser.uid;
-          await updateDoc(doc(db, "posts", postId), { likes: arrayUnion(uid) });
-        });
-
-        // comment
-        el.querySelector(".commentBtn").addEventListener("click", () => {
-          const text = prompt("Napiši komentar:");
-          if (text) {
-            updateDoc(doc(db, "posts", postId), {
-              comments: arrayUnion({ uid: auth.currentUser.uid, text, at: Date.now() })
-            });
-          }
-        });
-
-        // share
-        el.querySelector(".shareBtn").addEventListener("click", () => {
-          navigator.clipboard.writeText(location.origin + "/post/" + postId);
-          showToast("🔗 Link do objave kopiran");
-        });
-
-        // prikaz komentarjev
-        if (post.comments) {
-          const cWrap = el.querySelector(".comments");
-          post.comments.forEach(c => {
-            const ce = document.createElement("div");
-            ce.className = "meta";
-            ce.textContent = c.text;
-            cWrap.appendChild(ce);
-          });
-        }
-
-        feed.appendChild(el);
-      });
-    });
-  }
-
-  // ==================== THREADS ====================
-  async function loadThreads(uid) {
-    const q = query(collection(db, "users", uid, "threads"), orderBy("lastAt", "desc"));
-    onSnapshot(q, snap => {
-      const threads = document.getElementById("threads");
-      threads.innerHTML = "";
-      snap.forEach(docSnap => {
-        const t = docSnap.data();
-        const el = document.createElement("div");
-        el.className = "thread";
-        el.innerHTML = `
-          <div class="avatar"><img src="${t.avatar || ''}" alt=""/></div>
-          <div class="meta"><strong>${t.name}</strong><div class="meta">${t.lastMsg || ""}</div></div>
-          <div class="heart ${t.shared ? 'active' : ''}" data-id="${docSnap.id}">❤</div>
-        `;
-        // srček toggle
-        el.querySelector(".heart").addEventListener("click", async (e) => {
-          const newShared = !t.shared;
-          await updateDoc(doc(db, "users", uid, "threads", docSnap.id), { shared: newShared });
-          showToast(newShared ? "Pogovor deljen s partnerjem ❤️" : "Pogovor skrit od partnerja 💔");
-        });
-        threads.appendChild(el);
-      });
-    });
-  }
-
-  
-
-  // ==================== TODO ====================
-  const todoPanel = document.getElementById("tab-todo");
-  todoPanel.innerHTML = `
-    <div style="display:flex;gap:8px;margin-bottom:8px">
-      <input id="todoInput" placeholder="Dodaj nalogo…" style="flex:1"/>
-      <button id="todoAdd" class="btn primary">+</button>
-    </div>
-    <div id="todoList"></div>
-  `;
-  document.getElementById("todoAdd").addEventListener("click", async () => {
-    const val = document.getElementById("todoInput").value.trim();
-    if (!val) return;
-    await addDoc(collection(db, "apps", auth.currentUser.uid, "todo"), { text: val, done: false, at: serverTimestamp() });
-    document.getElementById("todoInput").value = "";
-  });
-  onSnapshot(collection(db, "apps", auth.currentUser.uid, "todo"), snap => {
-    const list = document.getElementById("todoList");
-    list.innerHTML = "";
-    snap.forEach(d => {
-      const t = d.data();
-      const el = document.createElement("div");
-      el.innerHTML = `<label><input type="checkbox" ${t.done ? "checked":""}/> ${t.text}</label>`;
-      el.querySelector("input").addEventListener("change", () => updateDoc(doc(db,"apps",auth.currentUser.uid,"todo",d.id),{done:!t.done}));
-      list.appendChild(el);
-    });
-  });
-
-  // ==================== NOTES ====================
-  const notesPanel = document.getElementById("tab-notes");
-  notesPanel.innerHTML = `<textarea id="notesArea" style="width:100%;min-height:200px"></textarea><br><button id="saveNotes" class="btn primary">💾 Shrani</button>`;
-  const notesDoc = doc(db,"apps",auth.currentUser.uid,"notes","main");
-  document.getElementById("saveNotes").addEventListener("click", async () => {
-    await updateDoc(notesDoc,{text:document.getElementById("notesArea").value});
-  });
-  onSnapshot(notesDoc,snap=>{ if(snap.exists()) document.getElementById("notesArea").value = snap.data().text });
-
-  // ==================== CALENDAR ====================
-  const calPanel = document.getElementById("tab-calendar");
-  calPanel.innerHTML = `
-    <div style="display:flex;gap:8px;margin-bottom:8px">
-      <input id="calDate" type="date"/>
-      <input id="calTitle" placeholder="Dogodek"/>
-      <button id="calAdd" class="btn primary">Dodaj</button>
-    </div>
-    <div id="calList"></div>
-  `;
-  document.getElementById("calAdd").addEventListener("click",async()=>{
-    const d=document.getElementById("calDate").value;
-    const t=document.getElementById("calTitle").value;
-    if(!d||!t)return;
-    await addDoc(collection(db,"apps",auth.currentUser.uid,"calendar"),{date:d,title:t,at:serverTimestamp()});
-    document.getElementById("calTitle").value="";
-  });
-  onSnapshot(collection(db,"apps",auth.currentUser.uid,"calendar"),snap=>{
-    const list=document.getElementById("calList");
-    list.innerHTML="";
-    snap.forEach(d=>{
-      const ev=d.data();
-      const el=document.createElement("div");
-      el.textContent=`${ev.date}: ${ev.title}`;
-      list.appendChild(el);
-    });
-  });
-
-  // ==================== ALBUM ====================
-  const albPanel = document.getElementById("tab-album");
-  albPanel.innerHTML = `
-    <input id="albFile" type="file" accept="image/*"/>
-    <button id="albUpload" class="btn primary">Naloži</button>
-    <div id="albGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px;margin-top:8px"></div>
-  `;
-  document.getElementById("albUpload").addEventListener("click",async()=>{
-    const f=document.getElementById("albFile").files[0];
-    if(!f)return;
-    const r=ref(storage,"album/"+auth.currentUser.uid+"/"+Date.now()+"_"+f.name);
-    await uploadBytes(r,f);
-    const url=await getDownloadURL(r);
-    await addDoc(collection(db,"apps",auth.currentUser.uid,"album"),{url,at:serverTimestamp()});
-  });
-  onSnapshot(collection(db,"apps",auth.currentUser.uid,"album"),snap=>{
-    const g=document.getElementById("albGrid");
-    g.innerHTML="";
-    snap.forEach(d=>{
-      const a=d.data();
-      const el=document.createElement("img");
-      el.src=a.url;
-      el.style.width="100%";el.style.borderRadius="8px";
-      g.appendChild(el);
-    });
-  });
-
-  
-  // Uporabi že inicializirane instance, če jih imaš v drugem bloku
-  
-
-  // UI elementi
-  const callBtn   = document.getElementById('callBtn');
-  const videoBtn  = document.getElementById('videoBtn');
-  const chatTitle = document.getElementById('chatTitle');
-
-  // Globalno: nastavi v openChat(threadId, name)
-  // window.currentThreadId = "...";
-  // window.currentThreadSnap = {...} // opcijsko, če ga že bereš
-
-  // WebRTC state
-  let pc = null;
-  let localStream = null;
-  let remoteStream = null;
-  let activeCallRef = null;           // doc ref: threads/{threadId}/calls/{callId}
-  let unsubCall = null;               // onSnapshot za call doc
-  let unsubIncoming = null;           // onSnapshot poslušanje dohodnih klicev
-  let role = null;                    // 'caller' | 'callee'
-
-  const rtcConfig = {
-    iceServers: [
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" },
-      { urls: "stun:stun2.l.google.com:19302" }
-      // Za produkcijo dodaj TURN (npr. Twilio / owncoturn) za NAT traversal:
-      // { urls: "turn:your.turn.server:3478", username: "user", credential: "pass" }
-    ]
+  // ------- Helpers -------
+  const $  = (id)=>document.getElementById(id);
+  const toast = (msg)=>{ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); };
+  const fmtDate = (d)=>{
+    try{
+      if(d?.toDate) return d.toDate();
+      if(typeof d==='number') return new Date(d);
+      if(typeof d==='string') return new Date(d);
+    }catch(e){}
+    return new Date();
+  };
+  const initials = (name='?')=>{
+    const parts = name.trim().split(/\s+/).slice(0,2);
+    return parts.map(p=>p[0]?.toUpperCase()||'').join('') || 'U';
   };
 
-  function ensureHttps() {
-    const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-    if (!isLocal && location.protocol !== 'https:') {
-      console.warn('Za dostop do kamere/mikrofona je priporočljiv HTTPS ali localhost.');
+  // ------- Navigation -------
+  const views = document.querySelectorAll('.view');
+  document.querySelectorAll('.dock button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.dock button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const v = btn.getAttribute('data-view');
+      views.forEach(el=> el.classList.toggle('active', el.id===v));
+    });
+  });
+
+  // ------- Global state -------
+  let me=null, myProfile={}, coupleId=null, partnerUid=null;
+
+  async function safeGetDoc(pathArr){
+    const r = await getDoc(doc(db, ...pathArr));
+    return r.exists() ? r.data() : null;
+  }
+
+  async function loadMyProfile(){
+    const prof = await safeGetDoc(['profiles', me.uid]);
+    myProfile = prof || {};
+    coupleId = myProfile.coupleId || null;
+
+    // Fallbacki iz auth, če v profiles ni nič
+    const displayName = myProfile.username || me.displayName || me.email?.split('@')[0] || 'Uporabnik';
+    const photo = myProfile.photoURL || me.photoURL || '';
+
+    $('meName').textContent = displayName;
+    $('meEmail').textContent = me.email || '';
+
+    if(photo){
+      $('meAvatar').src = photo;
+      $('meAvatar').alt = displayName;
+    } else {
+      // ustvari “initials” placeholder
+      $('meAvatar').alt = initials(displayName);
+      $('meAvatar').src = `data:image/svg+xml;utf8,${encodeURIComponent(`
+        <svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'>
+          <rect width='100%' height='100%' rx='12' ry='12' fill='#0f172a'/>
+          <text x='50%' y='55%' font-size='28' font-family='sans-serif' fill='#9ca3af' text-anchor='middle'>${initials(displayName)}</text>
+        </svg>
+      `)}`;
+    }
+
+    if (coupleId) {
+      const c = await safeGetDoc(['couples', coupleId]);
+      const members = c?.members || [];
+      partnerUid = members.find(u=>u!==me.uid) || null;
+      if (c?.jointPhotoURL) $('jointAvatar').src = c.jointPhotoURL;
     }
   }
 
-  // ======= UI handli =======
-  callBtn?.addEventListener('click', () => startCall('audio'));
-  videoBtn?.addEventListener('click', () => startCall('video'));
+  // ------- Paths & upload -------
+  function scopePath(sub){
+    return coupleId ? ['couples', coupleId, sub] : ['users', me.uid, sub];
+  }
 
-  // ======= Klicanje =======
-  async function startCall(mode = 'audio') {
-    ensureHttps();
-    const threadId = window.currentThreadId;
-    if (!threadId) { alert("Najprej odpri klepet."); return; }
-    const user = auth.currentUser;
-    if (!user) return;
+  function ownerInfo(isCouple){
+    if(isCouple && coupleId) return { ownerType:'couple', ownerId: coupleId, basePath:['couples', coupleId] };
+    return { ownerType:'user', ownerId: me.uid, basePath:['users', me.uid] };
+  }
 
-    await cleanupCall(); // počisti morebitno prejšnjo sejo
-
-    role = 'caller';
-    pc = new RTCPeerConnection(rtcConfig);
-    bindPeerEvents();
-
-    // Media
-    const constraints = { audio: true, video: mode === 'video' };
-    localStream = await navigator.mediaDevices.getUserMedia(constraints);
-    localStream.getTracks().forEach(tr => pc.addTrack(tr, localStream));
-    // Pripravi remote stream (če rabiš prikaz, lahko dodaš <video id="remoteVideo"> v modal)
-    remoteStream = new MediaStream();
-
-    // Ustvari call doc
-    const callsCol = collection(db, 'threads', threadId, 'calls');
-    const callDoc = await addDoc(callsCol, {
-      initiatedBy: user.uid,
-      mode,
-      createdAt: serverTimestamp(),
-      status: 'ringing'
-    });
-    activeCallRef = callDoc;
-
-    // ICE kandidati (caller)
-    const callerCandidates = collection(activeCallRef, 'callerCandidates');
-    pc.addEventListener('icecandidate', async event => {
-      if (event.candidate) {
-        await addDoc(callerCandidates, event.candidate.toJSON());
-      }
-    });
-
-    // Offer
-    const offerDesc = await pc.createOffer();
-    await pc.setLocalDescription(offerDesc);
-    await updateDoc(activeCallRef, { offer: { sdp: offerDesc.sdp, type: offerDesc.type } });
-
-    // Poslušaj answer + callee ICE
-    const calleeCandidates = collection(activeCallRef, 'calleeCandidates');
-    unsubCall = onSnapshot(activeCallRef, async snap => {
-      const data = snap.data();
-      if (!pc) return;
-      if (data?.answer && !pc.currentRemoteDescription) {
-        await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-      }
-      if (data?.status === 'ended') {
-        await cleanupCall();
-      }
-    });
-    onSnapshot(calleeCandidates, snap => {
-      snap.docChanges().forEach(change => {
-        if (change.type === 'added') {
-          const candidate = new RTCIceCandidate(change.doc.data());
-          pc.addIceCandidate(candidate).catch(console.error);
+  async function uploadFile(file, path, onProgress){
+    return await new Promise((resolve, reject)=>{
+      const r = ref(storage, path);
+      const task = uploadBytesResumable(r, file, { contentType: file.type });
+      task.on('state_changed',
+        snap=>{
+          if(onProgress){
+            const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
+            onProgress(pct);
+          }
+        },
+        reject,
+        async ()=>{
+          try{
+            const url = await getDownloadURL(task.snapshot.ref);
+            resolve(url);
+          }catch(e){ reject(e); }
         }
+      );
+    });
+  }
+
+  // ------- HOME: STORIES & FEED -------
+  let storiesUnsubs = [], postsUnsubs = [];
+  const clearUnsubs = (arr)=>{ arr.forEach(u=>u&&u()); arr.length=0; };
+
+  // placeholderji
+  function renderEmptyStories(){
+    const el = $('stories'); el.innerHTML='';
+    const card = document.createElement('div');
+    card.className='story';
+    card.innerHTML = `
+      <div style="display:grid;place-items:center;height:100%;color:#9ca3af">Ni zgodb.<br/><span class="hint">Ustvari prvo zgodbo ➜</span></div>
+    `;
+    el.appendChild(card);
+  }
+  function renderEmptyFeed(){
+    const el = $('feed'); el.innerHTML='';
+    const wrap = document.createElement('div');
+    wrap.className='post';
+    wrap.innerHTML = `
+      <div class="post-head" style="justify-content:center">
+        <div class="hint">Zaenkrat ni objav. Dodaj svojo v zavihku “Ustvari”.</div>
+      </div>
+    `;
+    el.appendChild(wrap);
+  }
+
+  function renderStories(){
+    clearUnsubs(storiesUnsubs);
+    const el = $('stories'); el.innerHTML = '';
+    let hadAny = false;
+
+    const paths = [
+      ['users', me.uid, 'stories'],
+      ...(coupleId ? [['couples', coupleId, 'stories']] : []),
+      // legacy top-level (če imaš stare zapise)
+      ['stories']
+    ];
+
+    const buffer = new Map();
+    const commit = ()=>{
+      const items = [...buffer.values()]
+        .filter(s => !s.expireAt || s.expireAt > Date.now())
+        .sort((a,b)=> (b.createdAt?.toMillis?.() || b.createdAt || 0) - (a.createdAt?.toMillis?.() || a.createdAt || 0));
+
+      el.innerHTML = '';
+      if(items.length===0){ renderEmptyStories(); return; }
+
+      items.forEach(s=>{
+        const div = document.createElement('div');
+        div.className = 'story';
+        div.innerHTML = `<img src="${s.mediaURL}" alt=""><div class="label">${s.authorName||'Uporabnik'}</div>`;
+        div.addEventListener('click', ()=> openStory(s._id));
+        el.appendChild(div);
+      });
+    };
+
+    paths.forEach(p=>{
+      const qy = p.length===1
+        ? query(collection(db, p[0]), orderBy('createdAt','desc'), limit(30))
+        : query(collection(db, ...p), orderBy('createdAt','desc'), limit(30));
+      const unsub = onSnapshot(qy, (qs)=>{
+        qs.forEach(d=>{
+          hadAny = true;
+          const x = d.data();
+          buffer.set(d.ref.path, { ...x, _id: d.ref.path });
+        });
+        commit();
+      }, (err)=> console.error('stories snapshot err', err));
+      storiesUnsubs.push(unsub);
+    });
+
+    // če se res nič ne vrne
+    setTimeout(()=>{ if(!hadAny && el.children.length===0) renderEmptyStories(); }, 1200);
+  }
+
+  function postCard(pathId, p){
+    const wrap = document.createElement('div'); wrap.className='post';
+    const dt = fmtDate(p.createdAt);
+
+    wrap.innerHTML = `
+      <div class="post-head">
+        <div class="avatar">${p.authorPhoto? `<img src="${p.authorPhoto}" alt="">`:''}</div>
+        <div>
+          <div style="font-weight:800">${p.authorName||'Uporabnik'} ${p.ownerType==='couple' ? '• 👩‍❤️‍👨':''}</div>
+          <div class="hint">${dt.toLocaleString()}</div>
+        </div>
+      </div>
+      <div class="post-media">${p.mediaURL? `<img src="${p.mediaURL}" alt="">` : ''}</div>
+      <div style="padding:10px">${p.caption||''}</div>
+      <div class="post-actions">
+        <button class="chip" data-act="like">❤️ <span>${p.likes||0}</span></button>
+        <button class="chip" data-act="comment">💬 Komentiraj</button>
+        <button class="chip" data-act="share">↗️ Posreduj</button>
+      </div>
+    `;
+
+    wrap.querySelector('[data-act="like"]').addEventListener('click', async ()=>{
+      try{
+        await updateDoc(doc(db, ...pathId.split('/')), { likes: increment(1) });
+        const span = wrap.querySelector('[data-act="like"] span');
+        if (span) span.textContent = String(Number(span.textContent||0) + 1);
+      }catch(e){ console.error(e); toast('Like ni uspel'); }
+    });
+    wrap.querySelector('[data-act="comment"]').addEventListener('click', ()=> openChatForPost(pathId, p));
+    wrap.querySelector('[data-act="share"]').addEventListener('click', ()=> openShare(pathId));
+    return wrap;
+  }
+
+  function renderFeed(){
+    clearUnsubs(postsUnsubs);
+    const el = $('feed'); el.innerHTML = '';
+    let hadAny = false;
+
+    const paths = [
+      ['users', me.uid, 'posts'],
+      ...(coupleId ? [['couples', coupleId, 'posts']] : []),
+      // legacy top-level (če imaš stare zapise)
+      ['posts']
+    ];
+
+    const buffer = new Map();
+    const commit = ()=>{
+      const items = [...buffer.values()]
+        .sort((a,b)=> (b.createdAt?.toMillis?.() || b.createdAt || 0) - (a.createdAt?.toMillis?.() || a.createdAt || 0));
+      el.innerHTML = '';
+      if(items.length===0){ renderEmptyFeed(); return; }
+      items.forEach(p => el.appendChild(postCard(p._id, p)));
+    };
+
+    paths.forEach(p=>{
+      const qy = p.length===1
+        ? query(collection(db, p[0]), orderBy('createdAt','desc'), limit(50))
+        : query(collection(db, ...p), orderBy('createdAt','desc'), limit(50));
+      const unsub = onSnapshot(qy, (qs)=>{
+        qs.forEach(d=>{
+          hadAny = true;
+          const x = d.data();
+          buffer.set(d.ref.path, { ...x, _id: d.ref.path });
+        });
+        commit();
+      }, (err)=> console.error('feed snapshot err', err));
+      postsUnsubs.push(unsub);
+    });
+
+    setTimeout(()=>{ if(!hadAny && el.children.length===0) renderEmptyFeed(); }, 1200);
+  }
+
+  function openStory(){ toast('Predvajalnik zgodb – WIP'); }
+  function openChatForPost(){ toast('Komentarji – WIP'); }
+
+  // ------- SHARE modal (manjkal; brez tega je crashalo) -------
+  function openShare(postId){
+    const modal = $('shareModal'); const list = $('shareList'); list.innerHTML='';
+    modal.classList.add('active');
+
+    const qy = query(collection(db,'conversations'), where('participants','array-contains', me.uid), orderBy('updatedAt','desc'), limit(30));
+    onSnapshot(qy, (qs)=>{
+      list.innerHTML='';
+      if(qs.empty){
+        const empty = document.createElement('div'); empty.className='note'; empty.textContent='Ni pogovorov. Ustvari novega v Friends.';
+        list.appendChild(empty); return;
+      }
+      qs.forEach(d=>{
+        const c = d.data();
+        const item = document.createElement('div'); item.className='convo';
+        item.innerHTML=`<div class="name">${c.title||'Pogovor'}</div><span class="spacer"></span><div class="hint">pošlji</div>`;
+        item.addEventListener('click', async ()=>{
+          await addDoc(collection(db,'conversations', d.id, 'msgs'), { type:'share', postId, by:me.uid, createdAt: serverTimestamp() });
+          await updateDoc(doc(db,'conversations', d.id), { updatedAt: serverTimestamp() });
+          toast('Posredovano'); modal.classList.remove('active');
+        });
+        list.appendChild(item);
       });
     });
-
-    alert(`📞 ${mode === 'video' ? 'Video' : 'Audio'} klic se vzpostavlja… Druga stran bo videla povabilo v tem klepetu.`);
+    $('shareClose').onclick = ()=> modal.classList.remove('active');
   }
 
-  // ======= Sprejem dohodnega klica v tem threadu =======
-  // Pokliči to funkcijo v openChat(threadId, name) po tem, ko nastaviš window.currentThreadId
-  window.setupIncomingCallWatcher = function setupIncomingCallWatcher(threadId) {
-    // počisti prejšnje poslušalce
-    if (unsubIncoming) { unsubIncoming(); unsubIncoming = null; }
-    const callsCol = collection(db, 'threads', threadId, 'calls');
-    unsubIncoming = onSnapshot(callsCol, snap => {
-      snap.docChanges().forEach(async ch => {
-        if (ch.type !== 'added') return;
-        const callRef = doc(db, 'threads', threadId, 'calls', ch.doc.id);
-        const data = ch.doc.data();
-        const me = auth.currentUser?.uid;
-        if (!me) return;
-        if (data.initiatedBy === me) return; // to je naš klic
-        if (data.status && data.status !== 'ringing') return;
-        // Povabilo:
-        const accept = confirm(`📲 Dohodni ${data.mode === 'video' ? 'video' : 'audio'} klic v: ${chatTitle?.textContent || 'klepet'}. Sprejmem?`);
-        if (accept) {
-          await joinCall(callRef, data.mode);
-        } else {
-          await updateDoc(callRef, { status: 'declined' });
-        }
+  // ------- FRIENDS & CHAT (tvoje izhodišče; drobni guardi) -------
+  const convosEl = $('convos'); let convUnsub = null;
+  function loadConversations(){
+  if (convUnsub) convUnsub();
+  const fVal = $('convFilter').value.toLowerCase();
+  const sort = $('convSort').value;
+
+  // brez orderBy -> ne potrebuje composite indexa
+  const qy = query(collection(db,'conversations'), where('participants','array-contains', me.uid));
+
+  convUnsub = onSnapshot(qy, (qs)=>{
+    const items = [];
+    qs.forEach(d => {
+      const c = { id: d.id, ...d.data() };
+      if (fVal && !(c.title||'').toLowerCase().includes(fVal)) return;
+      items.push(c);
+    });
+
+    // lokalno sortiranje
+    if (sort === 'recent') {
+      items.sort((a,b)=> (b.updatedAt?.toMillis?.()||0) - (a.updatedAt?.toMillis?.()||0));
+    } else if (sort === 'name') {
+      items.sort((a,b)=> (a.title||'').localeCompare(b.title||''));
+    } else if (sort === 'active') {
+      items.sort((a,b)=> (b.msgCount||0) - (a.msgCount||0));
+    }
+
+    convosEl.innerHTML = '';
+    items.forEach(c=>{
+      const row = document.createElement('div'); row.className='convo';
+      row.innerHTML = `<div class="avatar">${c.photo? `<img src="${c.photo}">`:''}</div>
+        <div><div class="name">${c.title||'Pogovor'}</div><div class="hint">${c.lastMsg||''}</div></div>
+        <span class="spacer"></span>`;
+      const heart = document.createElement('button'); heart.className='heart'; heart.innerHTML='❤️';
+      heart.classList.toggle('active', !!c.partnerAccess);
+      heart.addEventListener('click', async (e)=>{
+        e.stopPropagation();
+        if(!partnerUid){ toast('Najprej poveži partnerja.'); return; }
+        const add = !c.partnerAccess;
+        await updateDoc(doc(db,'conversations', c.id), {
+          partnerAccess: add,
+          participants: add ? arrayUnion(partnerUid) : arrayRemove(partnerUid)
+        });
+        toast(add? 'Partner dobi dostop' : 'Dostop partnerju onemogočen');
+      });
+      row.appendChild(heart);
+      row.addEventListener('click', ()=> openChat(c.id, c));
+      convosEl.appendChild(row);
+    });
+  }, (err)=>{
+    console.error('conversations snapshot error:', err);
+    toast('Potrebujem Firestore indeks (glej konzolo).');
+  });
+}
+
+
+  const chatModal = $('chatModal'); const chatBody = $('chatBody');
+  let msgsUnsub = null; let currentConvoId = null;
+  function openChat(id, data){
+    currentConvoId = id; chatBody.innerHTML='';
+    $('chatTitle').textContent = data?.title||'Pogovor';
+    $('chatHeart').classList.toggle('active', !!data?.partnerAccess);
+    chatModal.classList.add('active');
+    if(msgsUnsub) msgsUnsub();
+    msgsUnsub = onSnapshot(query(collection(db,'conversations', id, 'msgs'), orderBy('createdAt')), (qs)=>{
+      chatBody.innerHTML='';
+      qs.forEach(m=>{
+        const msg=m.data(); const div=document.createElement('div'); div.className='msg'+(msg.by===me.uid?' me':'');
+        div.textContent = msg.text || (msg.type==='share'? `Deljena objava: ${msg.postId}` : '[neznano]');
+        chatBody.appendChild(div); chatBody.scrollTop = chatBody.scrollHeight;
       });
     });
   }
-
-  async function joinCall(callRef, mode = 'audio') {
-    ensureHttps();
-    await cleanupCall();
-    role = 'callee';
-
-    pc = new RTCPeerConnection(rtcConfig);
-    bindPeerEvents();
-
-    const constraints = { audio: true, video: mode === 'video' };
-    localStream = await navigator.mediaDevices.getUserMedia(constraints);
-    localStream.getTracks().forEach(tr => pc.addTrack(tr, localStream));
-
-    activeCallRef = callRef;
-
-    // ICE kandidati (callee)
-    const calleeCandidates = collection(activeCallRef, 'calleeCandidates');
-    pc.addEventListener('icecandidate', async event => {
-      if (event.candidate) {
-        await addDoc(calleeCandidates, event.candidate.toJSON());
-      }
+  $('chatClose').addEventListener('click', ()=>{ chatModal.classList.remove('active'); if(msgsUnsub) msgsUnsub(); });
+  $('chatSend').addEventListener('click', async ()=>{
+    const inp = $('chatInput'); const text = inp.value.trim(); if(!text) return;
+    await addDoc(collection(db,'conversations', currentConvoId, 'msgs'), { text, by: me.uid, createdAt: serverTimestamp() });
+    await updateDoc(doc(db,'conversations', currentConvoId), { lastMsg: text, updatedAt: serverTimestamp(), msgCount: increment(1) });
+    inp.value='';
+  });
+  $('chatHeart').addEventListener('click', async ()=>{
+    if(!partnerUid){ toast('Najprej poveži partnerja.'); return; }
+    const add = !$('chatHeart').classList.contains('active');
+    await updateDoc(doc(db,'conversations', currentConvoId), {
+      partnerAccess: add,
+      participants: add ? arrayUnion(partnerUid) : arrayRemove(partnerUid)
     });
+    $('chatHeart').classList.toggle('active', add);
+    toast(add? 'Dostop omogočen' : 'Dostop onemogočen');
+  });
 
-    // Preberi offer, nastavi remote, kreiraj answer
-    const callSnap = await getDoc(activeCallRef);
-    const callData = callSnap.data();
-    if (!callData?.offer) { alert("Klic ni veljaven."); return; }
+  $('convFilter').addEventListener('input', loadConversations);
+  $('convSort').addEventListener('change', loadConversations);
 
-    await pc.setRemoteDescription(new RTCSessionDescription(callData.offer));
-    const answerDesc = await pc.createAnswer();
-    await pc.setLocalDescription(answerDesc);
-    await updateDoc(activeCallRef, { answer: { type: answerDesc.type, sdp: answerDesc.sdp }, status: 'in-progress' });
+  $('btnNewConvo').addEventListener('click', async ()=>{
+    const uname = prompt('Vnesi username prijatelja (ali več, loči z vejico)'); if(!uname) return;
+    const usernames = uname.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+    const ids = [];
+    for(const u of usernames){
+      const ds = await getDoc(doc(db,'usernames', u)); if(ds.exists()) ids.push(ds.data().uid);
+    }
+    if(!ids.length){ toast('Uporabnika ni mogoče najti.'); return; }
+    const title = prompt('Naslov pogovora/grupe:') || 'Pogovor';
+    const ref = await addDoc(collection(db,'conversations'), { participants: arrayUnion(me.uid, ...ids), title, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), msgCount:0, partnerAccess:false });
+    openChat(ref.id, { title });
+  });
 
-    // Caller ICE
-    const callerCandidates = collection(activeCallRef, 'callerCandidates');
-    onSnapshot(callerCandidates, snap => {
-      snap.docChanges().forEach(change => {
-        if (change.type === 'added') {
-          const cand = new RTCIceCandidate(change.doc.data());
-          pc.addIceCandidate(cand).catch(console.error);
-        }
+  $('btnPartnerChat').addEventListener('click', async ()=>{
+    if(!partnerUid){ toast('Najprej poveži partnerja.'); return; }
+    const qy = query(collection(db,'conversations'), where('direct','==', true), where('participants','array-contains', me.uid));
+    const qs = await getDocs(qy);
+    let found = null; qs.forEach(d=>{ const c=d.data(); if((c.participants||[]).includes(partnerUid)) found={id:d.id,data:c}; });
+    if(found){ openChat(found.id, found.data); return; }
+    const ref = await addDoc(collection(db,'conversations'), { title:'Partner', participants:[me.uid, partnerUid], direct:true, partnerAccess:true, createdAt:serverTimestamp(), updatedAt:serverTimestamp(), msgCount:0 });
+    openChat(ref.id, { title:'Partner', partnerAccess:true });
+  });
+
+  $('btnAddFriend').addEventListener('click', async ()=>{
+    const uname = prompt('Poišči prijatelja (username)'); if(!uname) return;
+    const ds = await getDoc(doc(db,'usernames', uname.toLowerCase()));
+    if(!ds.exists()){ toast('Uporabnika ni.'); return; }
+    const other = ds.data().uid; if(other===me.uid){ toast('To si ti 🙂'); return; }
+    const a = [me.uid, other].sort(); const id = `f_${a[0]}_${a[1]}`;
+    await setDoc(doc(db,'friends', id), { a:a[0], b:a[1], createdAt: serverTimestamp() });
+    toast('Dodano med prijatelje');
+  });
+
+  // ------- CREATE: objava & zgodba -------
+  document.querySelectorAll('.tab').forEach(t=> t.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
+    const mode=t.getAttribute('data-mode'); $('postForm').style.display = (mode==='post')?'block':'none'; $('storyForm').style.display=(mode==='story')?'block':'none';
+  }));
+
+  $('btnPublishPost').addEventListener('click', async ()=>{
+    try{
+      const f = $('postFile').files?.[0]; const caption = $('postCaption').value.trim();
+      if(!f){ toast('Izberi sliko.'); return; }
+      const asCouple = !!($('postAsCouple').checked && coupleId);
+      const { ownerType, ownerId, basePath } = ownerInfo(asCouple);
+      const dest = `${ownerType==='couple'?'couples':'users'}/${ownerId}/posts/${Date.now()}_${f.name}`;
+      const url = await uploadFile(f, dest, (p)=>{ /* lahko dodaš progress bar */ });
+      await addDoc(collection(db, ...basePath, 'posts'), {
+        ownerType, ownerId,
+        authorUid: me.uid,
+        authorName: myProfile?.username || me.displayName || 'Uporabnik',
+        authorPhoto: myProfile?.photoURL || me.photoURL || '',
+        mediaURL: url,
+        caption,
+        createdAt: serverTimestamp(),
+        likes: 0
+      });
+      toast('Objava objavljena');
+      $('postCaption').value=''; $('postFile').value='';
+    }catch(e){ console.error(e); toast('Objava ni uspela'); }
+  });
+
+  // Story editor
+  const storyCanvas = $('storyCanvas'); const sCtx = storyCanvas.getContext('2d'); const storyText = $('storyText');
+  let baseImg = null;
+  function renderStory(){
+    if(!baseImg) return;
+    const w = baseImg.width; const h = baseImg.height;
+    const maxW = storyCanvas.parentElement.clientWidth; const scale = Math.min(maxW/w, 420/h, 1);
+    storyCanvas.width = Math.floor(w*scale); storyCanvas.height = Math.floor(h*scale);
+    sCtx.filter = $('filterSelect').value||'none';
+    sCtx.drawImage(baseImg, 0, 0, storyCanvas.width, storyCanvas.height);
+    // text overlay
+    const rect = storyText.getBoundingClientRect(); const pRect = storyCanvas.getBoundingClientRect();
+    const x = Math.max(10, rect.left - pRect.left); const y = Math.max(24, rect.top - pRect.top + 18);
+    sCtx.filter = 'none'; sCtx.font = '20px sans-serif'; sCtx.fillStyle = 'white'; sCtx.fillText(storyText.textContent||'', x, y);
+  }
+  $('filterSelect').addEventListener('change', renderStory);
+  function setBaseImage(src){ baseImg = new Image(); baseImg.onload = renderStory; baseImg.src = src; }
+  $('storyFile').addEventListener('change', ()=>{ const f=$('storyFile').files?.[0]; if(f){ setBaseImage(URL.createObjectURL(f)); }});
+
+  // Drag story text
+  let drag=false, dx=0, dy=0; const st=storyText; const wrap=st.parentElement;
+  st.addEventListener('mousedown', (e)=>{ drag=true; dx=e.offsetX; dy=e.offsetY; });
+  document.addEventListener('mouseup', ()=> drag=false);
+  wrap.addEventListener('mousemove', (e)=>{ if(!drag) return; const r=wrap.getBoundingClientRect(); st.style.left=(e.clientX-r.left-dx)+'px'; st.style.top=(e.clientY-r.top-dy)+'px'; renderStory(); });
+
+  $('btnOpenCamera').addEventListener('click', async ()=>{
+    try{
+      const v = $('camera'); v.style.display='block';
+      const stream = await navigator.mediaDevices.getUserMedia({ video:true }); v.srcObject = stream;
+      setTimeout(()=>{
+        storyCanvas.width = v.videoWidth; storyCanvas.height = v.videoHeight; sCtx.drawImage(v,0,0);
+        v.srcObject.getTracks().forEach(t=>t.stop()); v.style.display='none';
+        baseImg = new Image(); baseImg.onload=renderStory; baseImg.src = storyCanvas.toDataURL('image/jpeg');
+      }, 900);
+    }catch(e){ console.error(e); toast('Kamera ni na voljo'); }
+  });
+
+  $('btnPublishStory').addEventListener('click', async ()=>{
+    if(!baseImg){ toast('Dodaj sliko ali kamero.'); return; }
+    renderStory();
+    storyCanvas.toBlob(async (blob)=>{
+      try{
+        const asCouple = !!($('storyAsCouple').checked && coupleId);
+        const { ownerType, ownerId, basePath } = ownerInfo(asCouple);
+        const name = `story_${Date.now()}.jpg`;
+        const file = new File([blob], name, { type:'image/jpeg' });
+        const dest = `${ownerType==='couple'?'couples':'users'}/${ownerId}/stories/${name}`;
+        const url = await uploadFile(file, dest);
+        const expireAt = Date.now() + 24*60*60*1000;
+        await addDoc(collection(db, ...basePath, 'stories'), {
+          ownerType, ownerId,
+          authorUid: me.uid,
+          authorName: myProfile?.username||me.displayName||'Uporabnik',
+          mediaURL: url,
+          createdAt: serverTimestamp(),
+          expireAt
+        });
+        toast('Zgodba objavljena');
+      }catch(e){ console.error(e); toast('Zgodbe ni uspelo objaviti'); }
+    }, 'image/jpeg');
+  });
+
+  // ------- APPS (todos/notes/events/album) -------
+  document.querySelectorAll('.app-tab').forEach(t=> t.addEventListener('click', ()=>{
+    document.querySelectorAll('.app-tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
+    const app=t.getAttribute('data-app');
+    $('appTodos').style.display = app==='todos'? 'block' : 'none';
+    $('appNotes').style.display = app==='notes'? 'block' : 'none';
+    $('appCalendar').style.display = app==='calendar'? 'block' : 'none';
+    $('appAlbum').style.display = app==='album'? 'block' : 'none';
+  }));
+
+  // Todos
+  function loadTodos(){
+    const p = scopePath('todos'); const qy = query(collection(db, ...p), orderBy('createdAt','desc'));
+    onSnapshot(qy, (qs)=>{ const list=$('todoList'); list.innerHTML=''; 
+      if(qs.empty){ const n=document.createElement('div'); n.className='hint'; n.textContent='Ni opravil.'; list.appendChild(n); return; }
+      qs.forEach(d=>{
+        const t=d.data(); const el=document.createElement('div'); el.className='todo';
+        el.innerHTML=`<input type="checkbox" ${t.done?'checked':''}/> <div>${t.text}</div> <span class="spacer"></span> <button class="btn ghost">Izbriši</button>`;
+        const cb=el.querySelector('input'); cb.addEventListener('change', ()=> updateDoc(doc(db, ...p, d.id), { done: cb.checked }));
+        el.querySelector('button').addEventListener('click', ()=> deleteDoc(doc(db, ...p, d.id)));
+        list.appendChild(el);
       });
     });
+  }
+  $('btnAddTodo').addEventListener('click', async ()=>{
+    const text = $('todoInput').value.trim(); if(!text) return; $('todoInput').value='';
+    await addDoc(collection(db, ...scopePath('todos')), { text, done:false, createdAt: serverTimestamp(), by: me.uid });
+  });
 
-    // Poslušaj morebitne spremembe statusev (npr. zaključek)
-    unsubCall = onSnapshot(activeCallRef, snap => {
-      const d = snap.data();
-      if (d?.status === 'ended' || d?.status === 'declined') {
-        cleanupCall();
-      }
+  // Notes
+  function loadNotes(){
+    const p = scopePath('notes'); const qy = query(collection(db, ...p), orderBy('createdAt','desc'));
+    onSnapshot(qy, (qs)=>{ const list=$('notes'); list.innerHTML=''; 
+      if(qs.empty){ const n=document.createElement('div'); n.className='hint'; n.textContent='Ni beležk.'; list.appendChild(n); return; }
+      qs.forEach(d=>{
+        const n=d.data(); const el=document.createElement('div'); el.className='note';
+        el.innerHTML=`<div>${n.text}</div><div class="row" style="justify-content:flex-end"><button class="btn ghost">Izbriši</button></div>`;
+        el.querySelector('button').addEventListener('click', ()=> deleteDoc(doc(db, ...p, d.id)));
+        list.appendChild(el);
+      });
     });
   }
+  $('btnAddNote').addEventListener('click', async ()=>{
+    const text = $('noteInput').value.trim(); if(!text) return; $('noteInput').value='';
+    await addDoc(collection(db, ...scopePath('notes')), { text, createdAt: serverTimestamp(), by: me.uid });
+  });
 
-  // ======= Peer events =======
-  function bindPeerEvents() {
-    pc.addEventListener('connectionstatechange', () => {
-      console.log('Peer connection state:', pc.connectionState);
-      if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
-        cleanupCall();
-      }
-    });
-    pc.addEventListener('track', ev => {
-      if (!remoteStream) remoteStream = new MediaStream();
-      remoteStream.addTrack(ev.track);
-      // 👉 Če želiš prikaz: dodaj v modal <video id="remoteVideo" autoplay playsinline></video>
-      const rv = document.getElementById('remoteVideo');
-      if (rv) {
-        rv.srcObject = remoteStream;
-      }
+  // Calendar
+  function loadEvents(){
+    const p = scopePath('events'); const qy = query(collection(db, ...p), orderBy('date','asc'));
+    onSnapshot(qy, (qs)=>{ const list=$('events'); list.innerHTML=''; 
+      if(qs.empty){ const n=document.createElement('div'); n.className='hint'; n.textContent='Ni dogodkov.'; list.appendChild(n); return; }
+      qs.forEach(d=>{
+        const e=d.data(); const el=document.createElement('div'); el.className='event';
+        el.innerHTML=`<div style="font-weight:800">${e.title}</div><div class="hint">${e.date}</div>`; list.appendChild(el);
+      });
     });
   }
+  $('btnAddEvent').addEventListener('click', async ()=>{
+    const title = $('eventTitle').value.trim(); const date = $('eventDate').value; if(!title||!date) return;
+    $('eventTitle').value=''; $('eventDate').value='';
+    await addDoc(collection(db, ...scopePath('events')), { title, date, createdAt: serverTimestamp(), by: me.uid });
+  });
 
-  // ======= Zaključi klic / čiščenje =======
-  async function cleanupCall() {
-    try {
-      if (pc) {
-        pc.getSenders().forEach(s => { try { s.track?.stop(); } catch{} });
-        pc.close();
+  // Album
+  function loadAlbum(){
+    const p = scopePath('album'); const qy = query(collection(db, ...p), orderBy('createdAt','desc'));
+    onSnapshot(qy, (qs)=>{ const grid=$('albumGrid'); grid.innerHTML='';
+      if(qs.empty){
+        const ph = document.createElement('div'); ph.className='hint'; ph.style.padding='8px'; ph.textContent='Album je prazen. Naloži prvo sliko.';
+        grid.appendChild(ph); return;
       }
-      if (localStream) localStream.getTracks().forEach(t => t.stop());
-    } catch (e) { console.warn(e); }
-
-    pc = null;
-    localStream = null;
-    remoteStream = null;
-
-    if (unsubCall) { unsubCall(); unsubCall = null; }
-
-    // Označi call kot 'ended'
-    try {
-      if (activeCallRef) {
-        await updateDoc(activeCallRef, { status: 'ended', endedAt: serverTimestamp() });
-      }
-    } catch (e) { /* ignore */ }
-
-    activeCallRef = null;
-    role = null;
+      qs.forEach(d=>{
+        const ph=d.data(); const img=document.createElement('img'); img.src=ph.url; img.alt='photo'; grid.appendChild(img);
+      });
+    });
   }
+  $('btnAddPhoto').addEventListener('click', async ()=>{
+    const f=$('albumFile').files?.[0]; if(!f){ toast('Izberi sliko.'); return; }
+    const dest = coupleId ? `couples/${coupleId}/album/${Date.now()}_${f.name}` : `users/${me.uid}/album/${Date.now()}_${f.name}`;
+    try{
+      toast('Nalagam…');
+      const url=await uploadFile(f, dest, (p)=>{ /* lahko prikažeš % */ });
+      await addDoc(collection(db, ...scopePath('album')), { url, createdAt: serverTimestamp(), by: me.uid });
+      $('albumFile').value='';
+      toast('Naloženo ✅');
+    }catch(e){ console.error(e); toast('Nalaganje ni uspelo'); }
+  });
 
-  // Opcijsko: dodaš gumb "Končaj" v UI in ga vežeš na cleanupCall()
-  // <button id="hangupBtn" class="btn">Končaj</button>
-  // document.getElementById('hangupBtn')?.addEventListener('click', cleanupCall);
+  // ------- PROFILE -------
+  $('btnSaveJoint').addEventListener('click', async ()=>{
+    if(!coupleId){ toast('Najprej poveži partnerja.'); return; }
+    const f = $('jointFile').files?.[0]; if(!f){ toast('Izberi sliko.'); return; }
+    try{
+      const url = await uploadFile(f, `couples/${coupleId}/joint_${Date.now()}_${f.name}`);
+      await updateDoc(doc(db,'couples', coupleId), { jointPhotoURL: url });
+      $('jointAvatar').src = url; toast('Skupna slika shranjena');
+    }catch(e){ console.error(e); toast('Shranjevanje ni uspelo'); }
+  });
 
-  // ======= Integracija v obstoječ openChat =======
-  // KJER IMAŠ DEKLARIRANO openChat(threadId, name) DODAJ:
-  //   window.currentThreadId = threadId;
-  //   window.setupIncomingCallWatcher(threadId);
+  $('menuBtn').addEventListener('click', async ()=>{
+    const choice = prompt('Meni:\n1) Prikaži kodo za povezavo para\n2) Ustvari novo kodo');
+    if(choice==='1'){
+      const qy = query(collection(db,'coupleCodes'), where('primaryUid','==', me.uid));
+      const qs = await getDocs(qy); let code = null; qs.forEach(d=> code=d.id);
+      alert(code? `Tvoja koda: ${code}` : 'Ni kode. Ustvari novo.');
+    } else if(choice==='2'){
+      const code = 'XL-' + Math.random().toString(36).substring(2,7).toUpperCase();
+      await setDoc(doc(db,'coupleCodes', code), { primaryUid: me.uid, createdAt: serverTimestamp() });
+      alert(`Nova koda: ${code}`);
+    }
+  });
+
+  $('btnEditProfile').addEventListener('click', ()=> location.href='/setup.html');
+  $('btnPartnerView').addEventListener('click', async ()=>{
+    if(!partnerUid){ toast('Ni partnerja.'); return; }
+    const p = await safeGetDoc(['profiles', partnerUid]);
+    if(!p){ toast('Profil partnerja ni nastavljen.'); return; }
+    alert(`Partner: ${p.username||''}\nBio: ${p.bio||''}`);
+  });
+
+  // ------- Notifications -------
+  $('notifBtn').addEventListener('click', async ()=>{
+    if(!('Notification' in window)) { toast('Brskalnik ne podpira obvestil'); return; }
+    const perm = await Notification.requestPermission(); toast(perm==='granted'? 'Obvestila omogočena' : 'Obvestila onemogočena');
+  });
+
+  // ------- AUTH & INIT -------
+  onAuthStateChanged(auth, async (user)=>{
+    if(!user){ location.href='/'; return; }
+    me = user;
+    await loadMyProfile();
+    renderStories(); renderFeed();
+    loadConversations();
+    loadTodos(); loadNotes(); loadEvents(); loadAlbum();
+    toast('Pripravljeno ✨');
+  });
 </script>
+
 </body>
 </html>
-
-
