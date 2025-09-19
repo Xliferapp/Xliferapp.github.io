@@ -1205,24 +1205,80 @@ storageBucket: "chater2-fc480.firebasestorage.app", // točno tako
     const perm = await Notification.requestPermission(); toast(perm==='granted'? 'Obvestila omogočena' : 'Obvestila onemogočena');
   });
 
-  // ------- AUTH & INIT -------
-  onAuthStateChanged(auth, async (user)=>{
-    if(!user){ location.href='/'; return; }
-    me = user;
-    await loadMyProfile();
+ // ------- AUTH & INIT -------
+onAuthStateChanged(auth, async (user) => {
+  if (!user) { location.href = '/'; return; }
+  me = user;
 
-    // Stories + Posts (global+visibleTo)
-    renderStories();
+  try { await loadMyProfile(); } catch(e){ console.error(e); }
+
+  // Pripnemo listenerje in počakamo na prvi odziv
+  const tasks = [];
+
+  // STORIES
+  try {
+    const qStories = query(
+      collection(db, 'stories'),
+      where('visibleTo','array-contains', me.uid),
+      orderBy('createdAt','desc'),
+      limit(30)
+    );
+    tasks.push(waitForListener(qStories, (snap)=>{/* tvoj render je že v renderStories(); */}, 'Stories: pravila ali indeks?'));
+    renderStories(); // tvoja obstoječa funkcija za sprotni render
+  } catch(e){ console.error(e); }
+
+  // FEED
+  try {
+    const qFeed = query(
+      collection(db, 'posts'),
+      where('visibleTo','array-contains', me.uid),
+      orderBy('createdAt','desc'),
+      limit(50)
+    );
+    tasks.push(waitForListener(qFeed, ()=>{}, 'Feed: pravila ali indeks?'));
     renderFeed();
+  } catch(e){ console.error(e); }
 
-    // Ostalo
+  // CONVERSATIONS
+  try {
+    const qConvos = query(collection(db,'conversations'), where('participants','array-contains', me.uid));
+    tasks.push(waitForListener(qConvos, ()=>{}, 'Pogovori: pravila?'));
     loadConversations();
+  } catch(e){ console.error(e); }
+
+  // TODOS / NOTES / EVENTS / ALBUM (tvoje privatne poti)
+  try {
+    tasks.push(waitForListener(
+      query(collection(db, ...scopePath('todos')),  orderBy('createdAt','desc')),
+      ()=>{}, 'Todos: pravice?'
+    ));
+    tasks.push(waitForListener(
+      query(collection(db, ...scopePath('notes')),  orderBy('createdAt','desc')),
+      ()=>{}, 'Notes: pravice?'
+    ));
+    tasks.push(waitForListener(
+      query(collection(db, ...scopePath('events')), orderBy('date','asc')),
+      ()=>{}, 'Events: pravice?'
+    ));
+    tasks.push(waitForListener(
+      query(collection(db, ...scopePath('album')),  orderBy('createdAt','desc')),
+      ()=>{}, 'Album: pravice?'
+    ));
+
+    // tvoje obstoječe funkcije
     loadTodos(); loadNotes(); loadEvents(); loadAlbum();
-    toast('Pripravljeno ✨');
-  });
+  } catch(e){ console.error(e); }
+
+  // Počakamo na vse: če je vsaj en ok, pokažemo “Pripravljeno”
+  const results = await Promise.allSettled(tasks);
+  const anyOk = results.some(r => r.status === 'fulfilled' && r.value?.ok);
+  toast(anyOk ? 'Pripravljeno ✨' : 'Napaka pri branju (preveri pravila)');
+});
+
 </script>
 </body>
 </html>
+
 
 
 
