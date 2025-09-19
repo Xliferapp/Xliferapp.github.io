@@ -231,6 +231,7 @@
 firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
+const storage = getStorage(app, "gs://chater2-fc480.appspot.com");
 
   // === UI toggle ===
   const regBtn = document.getElementById('regBtn');
@@ -411,6 +412,7 @@ async function usernameTaken(username){
 
 </body>
 </html>
+
 
 
 
