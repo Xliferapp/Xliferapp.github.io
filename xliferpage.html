@@ -459,6 +459,25 @@ storageBucket: "chater2-fc480.firebasestorage.app", // točno tako
     const parts = name.trim().split(/\s+/).slice(0,2);
     return parts.map(p=>p[0]?.toUpperCase()||'').join('') || 'U';
   };
+// ===== Helper: počaka na 1. odziv onSnapshot (ali error) =====
+function waitForListener(qRef, onFirst, label = '') {
+  return new Promise((resolve) => {
+    let unsub = null;
+    unsub = onSnapshot(
+      qRef,
+      (snap) => {
+        try { if (typeof onFirst === 'function') onFirst(snap); } catch (e) { /* ignore */ }
+        try { unsub && unsub(); } catch {}
+        resolve({ ok: true, count: snap.size, label });
+      },
+      (err) => {
+        console.error(label || 'listener error', err);
+        try { unsub && unsub(); } catch {}
+        resolve({ ok: false, error: err, label });
+      }
+    );
+  });
+}
 
   // --- User meta cache za chat (za prikaz imena/avatara) ---
   const _userMetaCache = new Map();
@@ -1278,6 +1297,7 @@ onAuthStateChanged(auth, async (user) => {
 </script>
 </body>
 </html>
+
 
 
 
