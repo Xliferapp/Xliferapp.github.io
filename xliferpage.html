@@ -97,36 +97,14 @@
   align-content: flex-start;
 }
 
-/* balonček — res kompakten */
-.msg {
-  display: inline-block;
-  width: fit-content;
-  max-width: min(65%, 480px);
-  padding: 6px 9px;
-  border-radius: 10px;
-  background: #111827;
-  border: 1px solid #1f2937;
+.msg { max-width:min(72%,520px); width:fit-content; padding:8px 10px; border-radius:12px; background:#111827; border:1px solid #1f2937; line-height:1.35; white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word; }
+.msg.me { margin-left:auto; background:linear-gradient(135deg,#1f2937,#111827); }
+.msg-head{display:flex; align-items:center; gap:8px; margin-bottom:4px;}
+.msg-ava{width:22px; height:22px; border-radius:50%; overflow:hidden; background:#0f172a; border:1px solid #1f2937;}
+.msg-ava img{width:100%; height:100%; object-fit:cover;}
+.msg-name{font-size:12px; color:#9ca3af;}
+.msg-body{white-space:pre-wrap;}
 
-  font-size: 14px;
-  line-height: 1.25;
-
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  hyphens: auto;
-
-  /* stroga omejitev višine + notranji scroll */
-  max-height: 22vh;        /* desktop */
-  overflow-y: auto;
-  padding: 10px;
-}
-
-/* moja sporočila desno */
-.msg.me {
-  align-self: flex-end;
-  background: linear-gradient(135deg, #1f2937, #111827);
-  padding: 10px;
-}
 
 /* slike v mehurčkih niso več ogromne */
 .msg img {
@@ -433,7 +411,7 @@
     measurementId: "G-5W40WP5YEG"
   };
 
-  const app = initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true, useFetchStreams: false });
   const storage = getStorage(app);
@@ -453,6 +431,28 @@
     const parts = name.trim().split(/\s+/).slice(0,2);
     return parts.map(p=>p[0]?.toUpperCase()||'').join('') || 'U';
   };
+
+  // --- User meta cache za chat (za prikaz imena/avatara) ---
+  const _userMetaCache = new Map();
+  async function getUserMeta(uid) {
+    if (_userMetaCache.has(uid)) return _userMetaCache.get(uid);
+    try {
+      const snap = await getDoc(doc(db, 'profiles', uid));
+      if (snap.exists()) {
+        const p = snap.data() || {};
+        const meta = {
+          uid,
+          name: p.username || p.displayName || p.email?.split?.('@')?.[0] || 'Uporabnik',
+          photo: p.photoURL || ''
+        };
+        _userMetaCache.set(uid, meta);
+        return meta;
+      }
+    } catch (e) {}
+    const meta = { uid, name: 'Uporabnik', photo: '' };
+    _userMetaCache.set(uid, meta);
+    return meta;
+  }
 
   // ------- Global state -------
   let me=null, myProfile={}, coupleId=null, partnerUid=null;
@@ -521,12 +521,10 @@
   function scopePath(sub){
     return coupleId ? ['couples', coupleId, sub] : ['users', me.uid, sub];
   }
-
   function ownerInfo(isCouple){
     if(isCouple && coupleId) return { ownerType:'couple', ownerId: coupleId, basePath:['couples', coupleId] };
     return { ownerType:'user', ownerId: me.uid, basePath:['users', me.uid] };
   }
-
   async function uploadFile(file, path, onProgress){
     return await new Promise((resolve, reject)=>{
       const r = ref(storage, path);
@@ -570,7 +568,7 @@
     el.appendChild(wrap);
   }
 
-  // === STORIES: bere iz GLOBAL /stories po visibleTo ===
+  // === STORIES: global /stories po visibleTo ===
   function renderStories(){
     const el = $('stories'); if(!el) return;
     clearUnsubs(storiesUnsubs);
@@ -608,7 +606,7 @@
     storiesUnsubs.push(unsub);
   }
 
-  // === POSTS: bere iz GLOBAL /posts po visibleTo ===
+  // === POSTS: global /posts po visibleTo ===
   function postCard(pathId, p){
     const wrap = document.createElement('div'); wrap.className='post';
     const dt = fmtDate(p.createdAt);
@@ -765,24 +763,83 @@
     });
   }
 
-  const chatModal = $('chatModal'); const chatBody = $('chatBody');
-  let msgsUnsub = null; let currentConvoId = null;
+  // --- Chat (z imenom/avatarem v skupinah) ---
+  const chatModal = $('chatModal'); 
+  const chatBody = $('chatBody');
+  let msgsUnsub = null; 
+  let currentConvoId = null;
+  let currentConvoData = null;
+
+  function messageBubbleHTML(msg, meUid, showHeader, meta) {
+    const mine = msg.by === meUid;
+    const header = showHeader && !mine
+      ? `
+        <div class="msg-head">
+          <div class="msg-ava">${meta?.photo ? `<img src="${meta.photo}" alt="">` : ''}</div>
+          <div class="msg-name">${meta?.name || 'Uporabnik'}</div>
+        </div>
+      `
+      : '';
+
+    const bodyText = msg.text || (msg.type==='share' ? `🔗 Deljena objava: ${msg.postId}` : '[neznano]');
+    return `
+      <div class="msg ${mine ? 'me' : ''}">
+        ${header}
+        <div class="msg-body">${bodyText}</div>
+      </div>
+    `;
+  }
+  function participantsOf(convo) {
+    const arr = Array.isArray(convo?.participants) ? convo.participants : [];
+    return arr.filter(Boolean);
+  }
+  function isGroup(convo) {
+    return participantsOf(convo).length > 2;
+  }
+
   function openChat(id, data){
     if (!chatModal || !chatBody) return;
-    currentConvoId = id; chatBody.innerHTML='';
-    if ($('chatTitle')) $('chatTitle').textContent = data?.title||'Pogovor';
-    if ($('chatHeart')) $('chatHeart').classList.toggle('active', !!data?.partnerAccess);
+    currentConvoId = id; 
+    currentConvoData = data || currentConvoData || {};
+    chatBody.innerHTML='';
+    if ($('chatTitle')) $('chatTitle').textContent = currentConvoData?.title || 'Pogovor';
+    if ($('chatHeart')) $('chatHeart').classList.toggle('active', !!currentConvoData?.partnerAccess);
     chatModal.classList.add('active');
+
     if(msgsUnsub) msgsUnsub();
-    msgsUnsub = onSnapshot(query(collection(db,'conversations', id, 'msgs'), orderBy('createdAt')), (qs)=>{
-      chatBody.innerHTML='';
-      qs.forEach(m=>{
-        const msg=m.data(); const div=document.createElement('div'); div.className='msg'+(msg.by===me.uid?' me':'');
-        div.textContent = msg.text || (msg.type==='share'? `Deljena objava: ${msg.postId}` : '[neznano]');
-        chatBody.appendChild(div);
-      });
-      chatBody.scrollTop = chatBody.scrollHeight;
-    }, (err)=> console.error('msgs snapshot error', err));
+
+    if (!currentConvoData?.participants) {
+      getDoc(doc(db, 'conversations', id)).then(s => {
+        if (s.exists()) currentConvoData = { id: s.id, ...s.data() };
+      }).catch(()=>{});
+    }
+
+    msgsUnsub = onSnapshot(
+      query(collection(db,'conversations', id, 'msgs'), orderBy('createdAt')),
+      async (qs)=>{
+        const group = isGroup(currentConvoData);
+        chatBody.innerHTML='';
+
+        const uids = new Set();
+        qs.forEach(m => uids.add(m.data().by));
+        await Promise.all([...uids].map(uid => getUserMeta(uid)));
+
+        qs.forEach(m=>{
+          const msg = m.data();
+          const meta = msg.authorName || msg.authorPhoto
+            ? { name: msg.authorName, photo: msg.authorPhoto }
+            : _userMetaCache.get(msg.by);
+
+          const html = messageBubbleHTML(msg, me.uid, group, meta);
+          const wrapper = document.createElement('div');
+          wrapper.innerHTML = html;
+          chatBody.appendChild(wrapper.firstElementChild);
+        });
+
+        chatBody.scrollTop = chatBody.scrollHeight;
+      },
+      (err)=> console.error('msgs snapshot error', err)
+    );
   }
 
   const chatCloseBtn = $('chatClose');
@@ -792,11 +849,28 @@
   if (chatSendBtn) chatSendBtn.addEventListener('click', async ()=>{
     const inp = $('chatInput'); if(!inp) return;
     const text = inp.value.trim(); if(!text || !currentConvoId) return;
+
+    const authorName = myProfile?.username || me.displayName || me.email?.split('@')?.[0] || 'Uporabnik';
+    const authorPhoto = myProfile?.photoURL || me.photoURL || '';
+
     try{
-      await addDoc(collection(db,'conversations', currentConvoId, 'msgs'), { text, by: me.uid, createdAt: serverTimestamp() });
-      await updateDoc(doc(db,'conversations', currentConvoId), { lastMsg: text, updatedAt: serverTimestamp(), msgCount: increment(1) });
+      await addDoc(collection(db,'conversations', currentConvoId, 'msgs'), {
+        text,
+        by: me.uid,
+        authorName,
+        authorPhoto,
+        createdAt: serverTimestamp()
+      });
+      await updateDoc(doc(db,'conversations', currentConvoId), {
+        lastMsg: text,
+        updatedAt: serverTimestamp(),
+        msgCount: increment(1)
+      });
       inp.value='';
-    }catch(e){ console.error('send msg error', e); toast('Pošiljanje ni uspelo'); }
+    }catch(e){
+      console.error('send msg error', e);
+      toast('Pošiljanje ni uspelo');
+    }
   });
 
   const chatHeartBtn = $('chatHeart');
@@ -832,7 +906,7 @@
       msgCount: 0,
       partnerAccess: false
     });
-    openChat(ref.id, { title, partnerAccess:false });
+    openChat(ref.id, { title, partnerAccess:false, participants:[me.uid, ...ids] });
   });
 
   const btnPartnerChat = $('btnPartnerChat');
@@ -843,7 +917,7 @@
     let found = null; qs.forEach(d=>{ const c=d.data(); if((c.participants||[]).includes(partnerUid)) found={id:d.id,data:c}; });
     if(found){ openChat(found.id, found.data); return; }
     const ref = await addDoc(collection(db,'conversations'), { title:'Partner', participants:[me.uid, partnerUid], direct:true, partnerAccess:true, createdAt:serverTimestamp(), updatedAt:serverTimestamp(), msgCount:0 });
-    openChat(ref.id, { title:'Partner', partnerAccess:true });
+    openChat(ref.id, { title:'Partner', partnerAccess:true, participants:[me.uid, partnerUid] });
   });
 
   const btnAddFriend = $('btnAddFriend');
@@ -863,7 +937,6 @@
     const mode=t.getAttribute('data-mode'); if ($('postForm')) $('postForm').style.display = (mode==='post')?'block':'none'; if ($('storyForm')) $('storyForm').style.display=(mode==='story')?'block':'none';
   }));
 
-  // OBJAVA: shrani v /users|/couples in GLOBAL /posts z visibleTo
   const btnPublishPost = $('btnPublishPost');
   if (btnPublishPost) btnPublishPost.addEventListener('click', async ()=>{
     try{
@@ -902,7 +975,7 @@
     }catch(e){ console.error(e); toast('Objava ni uspela'); }
   });
 
-  // Story editor
+  // --- Story editor ---
   const storyCanvas = $('storyCanvas'); const sCtx = storyCanvas?.getContext?.('2d'); const storyText = $('storyText');
   let baseImg = null;
   function renderStory(){
@@ -1119,11 +1192,13 @@
     loadTodos(); loadNotes(); loadEvents(); loadAlbum();
     toast('Pripravljeno ✨');
   });
+  
 </script>
 
 
 </body>
 </html>
+
 
 
 
