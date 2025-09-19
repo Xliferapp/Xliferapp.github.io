@@ -207,208 +207,295 @@ X<!DOCTYPE html>
 </footer>
 
 
-  <!-- Firebase SDKs (modular v9+) -->
-  <script type="module">
-  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-  import { getAuth } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-  import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-  import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
+ <script type="module">
+  /* ================== IMPORTI ================== */
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
+  // Auth
+  import {
+    getAuth,
+    onAuthStateChanged,
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+    updateProfile,
+    signOut,
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+  // Firestore
+  import {
+    getFirestore,
+    doc,
+    getDoc,
+    setDoc,
+    updateDoc,
+    collection,
+    getDocs,
+    query,
+    where,
+    limit,
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  // Storage
+  import {
+    getStorage,
+    ref,
+    uploadBytesResumable,
+    getDownloadURL,
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+  /* ================== KONFIG ================== */
   const firebaseConfig = {
     apiKey: "YOUR_KEY",
     authDomain: "chater2-fc480.firebaseapp.com",
     databaseURL: "https://chater2-fc480-default-rtdb.firebaseio.com",
     projectId: "chater2-fc480",
-    storageBucket: "chater2-fc480.appspot.com",
+    storageBucket: "chater2-fc480.appspot.com",   // ← pravilni bucket
     messagingSenderId: "623092508370",
     appId: "1:623092508370:web:08cf5d58c6edcfac096f0b",
-    measurementId: "G-5W40WP5YEG"
+    measurementId: "G-5W40WP5YEG",
   };
 
+  /* ================== INIT ================== */
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
-  const storage = getStorage(app);
+  const storage = getStorage(app, "gs://chater2-fc480.appspot.com");
 
-  // === UI toggle ===
-  const regBtn = document.getElementById('regBtn');
-  const logBtn = document.getElementById('logBtn');
-  const regPanel = document.getElementById('regPanel');
-  const logPanel = document.getElementById('logPanel');
+  /* ========== UI ELEMENTI (če obstajajo) ========== */
+  const regBtn = document.getElementById("regBtn");
+  const logBtn = document.getElementById("logBtn");
+  const regPanel = document.getElementById("regPanel");
+  const logPanel = document.getElementById("logPanel");
 
-  regBtn.addEventListener('click', () => { regPanel.classList.add('active'); logPanel.classList.remove('active'); });
-  logBtn.addEventListener('click', () => { logPanel.classList.add('active'); regPanel.classList.remove('active'); });
+  regBtn?.addEventListener("click", () => {
+    regPanel?.classList.add("active");
+    logPanel?.classList.remove("active");
+  });
+  logBtn?.addEventListener("click", () => {
+    logPanel?.classList.add("active");
+    regPanel?.classList.remove("active");
+  });
 
-  // === Registracija ===
-  const regForm = document.getElementById('regForm');
-  const regEmail = document.getElementById('regEmail');
-  const regUsername = document.getElementById('regUsername');
-  const regPassword = document.getElementById('regPassword');
-  const regError = document.getElementById('regError');
+  const regForm = document.getElementById("regForm");
+  const regEmail = document.getElementById("regEmail");
+  const regUsername = document.getElementById("regUsername");
+  const regPassword = document.getElementById("regPassword");
+  const regError = document.getElementById("regError");
 
-  function humanAuthError(err){
+  const logForm = document.getElementById("logForm");
+  const loginIdentity = document.getElementById("loginIdentity");
+  const loginPassword = document.getElementById("loginPassword");
+  const coupleMode = document.getElementById("coupleMode");
+  const coupleCodeRow = document.getElementById("coupleCodeRow");
+  const coupleCodeInput = document.getElementById("coupleCode");
+  const logError = document.getElementById("logError");
+
+  coupleMode?.addEventListener("change", () => {
+    if (coupleCodeRow) coupleCodeRow.style.display = coupleMode.checked ? "block" : "none";
+  });
+
+  /* ================== HELPERJI ================== */
+  function humanAuthError(err) {
     switch (err?.code) {
-      case 'auth/email-already-in-use':     return 'Ta e-pošta je že registrirana.';
-      case 'auth/invalid-email':            return 'E-poštni naslov je neveljaven.';
-      case 'auth/weak-password':            return 'Geslo naj ima vsaj 6 znakov.';
-      case 'auth/wrong-password':           return 'Napačno geslo.';
-      case 'auth/user-not-found':           return 'Uporabnik s to identiteto ne obstaja.';
-      case 'auth/unauthorized-domain':      return 'Ta domena še ni dovoljena v Firebase (Authorized domains).';
-      case 'auth/network-request-failed':   return 'Težava z omrežjem. Preveri povezavo ali adblock.';
-      case 'auth/operation-not-allowed':    return 'Način prijave je onemogočen v Firebase konzoli.';
-      default: return err?.message || 'Prišlo je do napake.';
+      case "auth/email-already-in-use":   return "Ta e-pošta je že registrirana.";
+      case "auth/invalid-email":          return "E-poštni naslov je neveljaven.";
+      case "auth/weak-password":          return "Geslo naj ima vsaj 6 znakov.";
+      case "auth/wrong-password":         return "Napačno geslo.";
+      case "auth/user-not-found":         return "Uporabnik s to identiteto ne obstaja.";
+      case "auth/unauthorized-domain":    return "Domena ni dovoljena v Firebase (Authorized domains).";
+      case "auth/network-request-failed": return "Težava z omrežjem. Preveri povezavo ali adblock.";
+      case "permission-denied":           return "Manjkajo pravice (preveri Firestore pravila).";
+      default:                            return err?.message || "Prišlo je do napake.";
     }
   }
 
- // PREJ: query(collection(db,'profiles'), where('username','==', username))
-async function usernameTaken(username){
-  // beremo samo usernames/{username} – to je varna, javno berljiva mapa
-  const snap = await getDoc(doc(db, 'usernames', username.toLowerCase()));
-  return snap.exists();
-}
+  async function usernameTaken(username) {
+    const snap = await getDoc(doc(db, "usernames", username.toLowerCase()));
+    return snap.exists();
+  }
 
-  regForm.addEventListener('submit', async (e)=>{
-    e.preventDefault(); regError.textContent = '';
-    try{
+  const SYNTH_DOMAIN = "xlifer.local";
+  const emailFromUsername = (u) =>
+    `${u.toLowerCase().replace(/[^a-z0-9_.-]/g, "") || "user"}@${SYNTH_DOMAIN}`;
+
+  async function lookupEmailByUsername(username) {
+    // najprej iz usernames/{username}
+    const unameDoc = await getDoc(doc(db, "usernames", username.toLowerCase()));
+    if (unameDoc.exists()) return unameDoc.data().email;
+
+    // fallback: legacy iskanje v profiles (če obstaja indeks)
+    const qy = query(collection(db, "profiles"), where("username", "==", username));
+    const snap = await getDocs(qy);
+    if (!snap.empty) return snap.docs[0].data().email;
+    return null;
+  }
+
+  async function ensureSignInWithIdentity(identity, password, allowCreateIfCouple) {
+    const looksLikeEmail = identity.includes("@");
+    if (looksLikeEmail) {
+      return await signInWithEmailAndPassword(auth, identity, password);
+    }
+
+    const username = identity.trim();
+    const emailFound = await lookupEmailByUsername(username);
+    if (emailFound) {
+      return await signInWithEmailAndPassword(auth, emailFound, password);
+    }
+
+    if (allowCreateIfCouple) {
+      const syntheticEmail = emailFromUsername(username);
+      const cred = await createUserWithEmailAndPassword(auth, syntheticEmail, password);
+      await updateProfile(cred.user, { displayName: username });
+      await setDoc(doc(db, "profiles", cred.user.uid), {
+        email: syntheticEmail,
+        username,
+        createdAt: Date.now(),
+        coupleId: null,
+      });
+      await setDoc(doc(db, "usernames", username.toLowerCase()), {
+        uid: cred.user.uid,
+        email: syntheticEmail,
+      });
+      return cred;
+    }
+
+    throw new Error("Uporabniško ime ne obstaja. Vklopi način za pare ali se registriraj.");
+  }
+
+  async function linkPartnerByCode(myUid, code) {
+    const codeRef = doc(db, "coupleCodes", code.toUpperCase());
+    const snap = await getDoc(codeRef);
+    if (!snap.exists()) throw new Error("Neveljavna koda para.");
+
+    const { primaryUid, usedBy = null } = snap.data() || {};
+    if (!primaryUid) throw new Error("Koda ni pravilno nastavljena.");
+    if (usedBy && usedBy !== myUid) throw new Error("Koda je že uporabljena.");
+
+    const ids = [myUid, primaryUid].sort();
+    const coupleId = `c_${ids[0]}_${ids[1]}`;
+
+    await setDoc(doc(db, "couples", coupleId), {
+      members: ids,
+      createdAt: Date.now(),
+      status: "linked",
+    }, { merge: true });
+
+    await setDoc(doc(db, "profiles", myUid), { coupleId }, { merge: true });
+    await setDoc(doc(db, "profiles", primaryUid), { coupleId }, { merge: true });
+    await setDoc(codeRef, { usedBy: myUid, usedAt: Date.now() }, { merge: true });
+
+    return coupleId;
+  }
+
+  /* ================== REGISTRACIJA ================== */
+  regForm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (regError) regError.textContent = "";
+    try {
       const email = regEmail.value.trim();
       const username = regUsername.value.trim();
       const password = regPassword.value;
 
-      if(!email) throw new Error('E-pošta je obvezna.');
-      if(!/^[-_.a-zA-Z0-9]{3,24}$/.test(username)) throw new Error('Uporabniško ime naj bo 3–24 znakov (črke, številke, - _ .)');
-      if((password||'').length < 6) throw new Error('Geslo naj ima vsaj 6 znakov.');
-      if(await usernameTaken(username)) throw new Error('To uporabniško ime je že zasedeno.');
+      if (!email) throw new Error("E-pošta je obvezna.");
+      if (!/^[-_.a-zA-Z0-9]{3,24}$/.test(username))
+        throw new Error("Uporabniško ime naj bo 3–24 znakov (črke, številke, - _ .)");
+      if ((password || "").length < 6) throw new Error("Geslo naj ima vsaj 6 znakov.");
+      if (await usernameTaken(username)) throw new Error("To uporabniško ime je že zasedeno.");
 
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(cred.user, { displayName: username });
-      await setDoc(doc(db, 'profiles', cred.user.uid), { email, username, createdAt: Date.now(), coupleId: null });
-      await setDoc(doc(db, 'usernames', username.toLowerCase()), { uid: cred.user.uid, email });
+      await setDoc(doc(db, "profiles", cred.user.uid), {
+        email,
+        username,
+        createdAt: Date.now(),
+        coupleId: null,
+      });
+      await setDoc(doc(db, "usernames", username.toLowerCase()), {
+        uid: cred.user.uid,
+        email,
+      });
 
-      location.href = '/setup.html';
-    }catch(err){
-      console.error('REG ERROR:', err);
-      regError.textContent = humanAuthError(err);
+      location.href = "/setup.html";
+    } catch (err) {
+      console.error("REG ERROR:", err);
+      if (regError) regError.textContent = humanAuthError(err);
     }
   });
 
-  // === Prijava (en vnosni field: e-pošta ali username) ===
-  const logForm = document.getElementById('logForm');
-  const loginIdentity = document.getElementById('loginIdentity');
-  const loginPassword = document.getElementById('loginPassword');
-  const coupleMode = document.getElementById('coupleMode');
-  const coupleCodeRow = document.getElementById('coupleCodeRow');
-  const coupleCodeInput = document.getElementById('coupleCode');
-  const logError = document.getElementById('logError');
-
-  coupleMode.addEventListener('change', ()=>{ coupleCodeRow.style.display = coupleMode.checked ? 'block' : 'none'; });
-
-  const SYNTH_DOMAIN = 'xlifer.local';
-  const emailFromUsername = (u)=> `${u.toLowerCase().replace(/[^a-z0-9_.-]/g,'')||'user'}@${SYNTH_DOMAIN}`;
-
-  async function lookupEmailByUsername(username){
-    const unameDoc = await getDoc(doc(db,'usernames', username.toLowerCase()));
-    if(unameDoc.exists()) return unameDoc.data().email;
-    const qy = query(collection(db,'profiles'), where('username','==', username));
-    const snap = await getDocs(qy);
-    if(!snap.empty) return snap.docs[0].data().email;
-    return null;
-  }
-
-  async function ensureSignInWithIdentity(identity, password, allowCreateIfCouple){
-    const looksLikeEmail = identity.includes('@');
-    if(looksLikeEmail){
-      return await signInWithEmailAndPassword(auth, identity, password);
-    }
-    const username = identity.trim();
-    const emailFound = await lookupEmailByUsername(username);
-    if(emailFound){
-      return await signInWithEmailAndPassword(auth, emailFound, password);
-    }
-    if(allowCreateIfCouple){
-      const syntheticEmail = emailFromUsername(username);
-      const cred = await createUserWithEmailAndPassword(auth, syntheticEmail, password);
-      await updateProfile(cred.user, { displayName: username });
-      await setDoc(doc(db,'profiles', cred.user.uid), { email: syntheticEmail, username, createdAt: Date.now(), coupleId:null });
-      await setDoc(doc(db, 'usernames', username.toLowerCase()), { uid: cred.user.uid, email: syntheticEmail });
-      return cred;
-    }
-    throw new Error('Uporabniško ime ne obstaja. Vklopi način za pare ali se registriraj.');
-  }
-
-  async function linkPartnerByCode(myUid, code){
-    const codeRef = doc(db, 'coupleCodes', code.toUpperCase());
-    const snap = await getDoc(codeRef);
-    if(!snap.exists()) throw new Error('Neveljavna koda para.');
-    const primaryUid = snap.data().primaryUid;
-    const usedBy = snap.data().usedBy || null;
-    if(!primaryUid) throw new Error('Koda ni pravilno nastavljena.');
-    if(usedBy && usedBy !== myUid) throw new Error('Koda je že uporabljena.');
-    const ids = [myUid, primaryUid].sort();
-    const coupleId = `c_${ids[0]}_${ids[1]}`;
-    await setDoc(doc(db, 'couples', coupleId), { members: ids, createdAt: Date.now(), status: 'linked' }, { merge:true });
-    await setDoc(doc(db, 'profiles', myUid), { coupleId }, { merge:true });
-    await setDoc(doc(db, 'profiles', primaryUid), { coupleId }, { merge:true });
-    await setDoc(codeRef, { usedBy: myUid, usedAt: Date.now() }, { merge:true });
-    return coupleId;
-  }
-
-  logForm.addEventListener('submit', async (e)=>{
-    e.preventDefault(); logError.textContent = '';
-    try{
+  /* ================== PRIJAVA ================== */
+  logForm?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (logError) logError.textContent = "";
+    try {
       const identity = loginIdentity.value.trim();
       const password = loginPassword.value;
-      if(!identity || !password) throw new Error('Vnesi identiteto (e-pošta ali username) in geslo.');
+      if (!identity || !password)
+        throw new Error("Vnesi identiteto (e-pošta ali username) in geslo.");
 
-      const cred = await ensureSignInWithIdentity(identity, password, coupleMode.checked);
+      const cred = await ensureSignInWithIdentity(
+        identity,
+        password,
+        !!coupleMode?.checked
+      );
 
-      if(coupleMode.checked){
-        const code = (coupleCodeInput.value||'').trim();
-        if(code.length < 6) throw new Error('Vnesi veljavno kodo para.');
+      if (coupleMode?.checked) {
+        const code = (coupleCodeInput?.value || "").trim();
+        if (code.length < 6) throw new Error("Vnesi veljavno kodo para.");
         await linkPartnerByCode(cred.user.uid, code);
       }
-      location.href = '/setup.html';
+
+      location.href = "/setup.html";
     } catch (err) {
-      console.error('AUTH ERROR:', err);
-      // ✅ pravilni element
-      logError.textContent = humanAuthError(err);
+      console.error("AUTH ERROR:", err);
+      if (logError) logError.textContent = humanAuthError(err);
     }
   });
 
+  /* ================== DIAG (po prijavi) ================== */
+  let me = null;
+  onAuthStateChanged(auth, (u) => { me = u || null; });
 
-
-    window.diag = async () => {
-  try {
-    console.log('UID:', me?.uid);
-    // 1) test: preberi svojo profilno
-    await getDoc(doc(db, 'profiles', me.uid)).then(s=>console.log('profiles ok:', s.exists()));
-
-    // 2) test: preberi poljubno coupleCode (če obstaja)
-    // zamenjaj 'XL-XXXXX' s kodo, ki jo uporabljaš
-    try { 
-      const cc = await getDoc(doc(db, 'coupleCodes', 'XL-XXXXX'));
-      console.log('coupleCodes read ok:', cc.exists());
-    } catch (e) { console.warn('coupleCodes read ERR:', e.code || e.message); }
-
-    // 3) test: conversations query
+  window.diag = async () => {
     try {
-      const qs = await getDocs(query(collection(db,'conversations'), where('participants','array-contains', me.uid), limit(1)));
-      console.log('convos ok, count=', qs.size);
-    } catch (e) { console.warn('convos ERR:', e.code || e.message); }
+      console.log("UID:", me?.uid);
+      if (!me) { console.warn("Nisi prijavljen."); return; }
 
-    // 4) test: posts query
-    try {
-      const qs = await getDocs(query(collection(db,'posts'), where('visibleTo','array-contains', me.uid), limit(1)));
-      console.log('posts ok, count=', qs.size);
-    } catch (e) { console.warn('posts ERR:', e.code || e.message); }
-  } catch (e) {
-    console.error('DIAG FATAL:', e);
-  }
-};
+      // 1) profiles
+      try {
+        const s = await getDoc(doc(db, "profiles", me.uid));
+        console.log("profiles ok:", s.exists());
+      } catch (e) { console.warn("profiles ERR:", e.code || e.message); }
 
+      // 2) coupleCodes (primer)
+      try {
+        const cc = await getDoc(doc(db, "coupleCodes", "XL-XXXXX"));
+        console.log("coupleCodes read ok:", cc.exists());
+      } catch (e) { console.warn("coupleCodes ERR:", e.code || e.message); }
+
+      // 3) conversations
+      try {
+        const qs = await getDocs(
+          query(collection(db, "conversations"), where("participants", "array-contains", me.uid), limit(1))
+        );
+        console.log("convos ok, count=", qs.size);
+      } catch (e) { console.warn("convos ERR:", e.code || e.message); }
+
+      // 4) posts
+      try {
+        const qs = await getDocs(
+          query(collection(db, "posts"), where("visibleTo", "array-contains", me.uid), limit(1))
+        );
+        console.log("posts ok, count=", qs.size);
+      } catch (e) { console.warn("posts ERR:", e.code || e.message); }
+    } catch (e) {
+      console.error("DIAG FATAL:", e);
+    }
+  };
 </script>
 
 </body>
 </html>
+
 
 
 
