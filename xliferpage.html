@@ -422,22 +422,20 @@
     arrayUnion, arrayRemove, getDocs
   } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
   import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
-import { setLogLevel } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-setLogLevel('debug');
+  import { setLogLevel } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+  setLogLevel('debug');
 
-  // ------- Firebase config (PRAVILEN storageBucket) -------
+  // ------- Firebase config -------
   const firebaseConfig = {
-  apiKey: "AIzaSyCaKT0CCg1xNJanG4-6Pox2UaH_1rSL3M0",
-  authDomain: "chater2-fc480.firebaseapp.com",
-  databaseURL: "https://chater2-fc480-default-rtdb.firebaseio.com",
-  projectId: "chater2-fc480",
-storageBucket: "chater2-fc480.firebasestorage.app", // točno tako
-  messagingSenderId: "623092508370",
-  appId: "1:623092508370:web:08cf5d58c6edcfac096f0b",
-  measurementId: "G-5W40WP5YEG"
-};
-
-
+    apiKey: "AIzaSyCaKT0CCg1xNJanG4-6Pox2UaH_1rSL3M0",
+    authDomain: "chater2-fc480.firebaseapp.com",
+    databaseURL: "https://chater2-fc480-default-rtdb.firebaseio.com",
+    projectId: "chater2-fc480",
+    storageBucket: "chater2-fc480.firebasestorage.app", // če imaš novi bucket, to je OK
+    messagingSenderId: "623092508370",
+    appId: "1:623092508370:web:08cf5d58c6edcfac096f0b",
+    measurementId: "G-5W40WP5YEG"
+  };
 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
@@ -459,25 +457,26 @@ storageBucket: "chater2-fc480.firebasestorage.app", // točno tako
     const parts = name.trim().split(/\s+/).slice(0,2);
     return parts.map(p=>p[0]?.toUpperCase()||'').join('') || 'U';
   };
-// ===== Helper: počaka na 1. odziv onSnapshot (ali error) =====
-function waitForListener(qRef, onFirst, label = '') {
-  return new Promise((resolve) => {
-    let unsub = null;
-    unsub = onSnapshot(
-      qRef,
-      (snap) => {
-        try { if (typeof onFirst === 'function') onFirst(snap); } catch (e) { /* ignore */ }
-        try { unsub && unsub(); } catch {}
-        resolve({ ok: true, count: snap.size, label });
-      },
-      (err) => {
-        console.error(label || 'listener error', err);
-        try { unsub && unsub(); } catch {}
-        resolve({ ok: false, error: err, label });
-      }
-    );
-  });
-}
+
+  // ===== Helper: počaka na 1. odziv onSnapshot (ali error) =====
+  function waitForListener(qRef, onFirst, label = '') {
+    return new Promise((resolve) => {
+      let unsub = null;
+      unsub = onSnapshot(
+        qRef,
+        (snap) => {
+          try { if (typeof onFirst === 'function') onFirst(snap); } catch (e) { /* ignore */ }
+          try { unsub && unsub(); } catch {}
+          resolve({ ok: true, count: snap.size, label });
+        },
+        (err) => {
+          console.error(label || 'listener error', err);
+          try { unsub && unsub(); } catch {}
+          resolve({ ok: false, error: err, label });
+        }
+      );
+    });
+  }
 
   // --- User meta cache za chat (za prikaz imena/avatara) ---
   const _userMetaCache = new Map();
@@ -499,6 +498,22 @@ function waitForListener(qRef, onFirst, label = '') {
     const meta = { uid, name: 'Uporabnik', photo: '' };
     _userMetaCache.set(uid, meta);
     return meta;
+  }
+
+  // --- Post cache za “share” v chatu ---
+  const _postCache = new Map();
+  async function getPost(postId) {
+    if (_postCache.has(postId)) return _postCache.get(postId);
+    try {
+      const snap = await getDoc(doc(db, 'posts', postId));
+      const data = snap.exists() ? { id: snap.id, ...snap.data() } : null;
+      _postCache.set(postId, data);
+      return data;
+    } catch (e) {
+      console.warn('getPost err', e);
+      _postCache.set(postId, null);
+      return null;
+    }
   }
 
   // ------- Global state -------
@@ -741,9 +756,12 @@ function waitForListener(qRef, onFirst, label = '') {
       }
       items.forEach(c=>{
         const item = document.createElement('div'); item.className='convo';
+        // za direct bomo spodaj tako ali tako prikazali pravilno ime v seznamu
         item.innerHTML=`<div class="name">${c.title||'Pogovor'}</div><span class="spacer"></span><div class="hint">pošlji</div>`;
         item.addEventListener('click', async ()=>{
-          await addDoc(collection(db,'conversations', c.id, 'msgs'), { type:'share', postId, by:me.uid, createdAt: serverTimestamp() });
+          await addDoc(collection(db,'conversations', c.id, 'msgs'), {
+            type:'share', postId, by:me.uid, createdAt: serverTimestamp()
+          });
           await updateDoc(doc(db,'conversations', c.id), { updatedAt: serverTimestamp() });
           toast('Posredovano'); modal.classList.remove('active');
         });
@@ -766,7 +784,7 @@ function waitForListener(qRef, onFirst, label = '') {
 
     const qy = query(collection(db,'conversations'), where('participants','array-contains', me.uid));
 
-    convUnsub = onSnapshot(qy, (qs)=>{
+    convUnsub = onSnapshot(qy, async (qs)=>{
       const items = [];
       qs.forEach(d => {
         const c = { id: d.id, ...d.data() };
@@ -783,11 +801,25 @@ function waitForListener(qRef, onFirst, label = '') {
       }
 
       convosEl.innerHTML = '';
-      items.forEach(c=>{
+      for (const c of items) {
+        // izračun za direct: ime + avatar sogovornika
+        let displayTitle = c.title || 'Pogovor';
+        let displayPhoto = c.photo || '';
+        if (c.direct && Array.isArray(c.participants)) {
+          const other = c.participants.find(uid => uid !== me.uid);
+          if (other) {
+            const meta = await getUserMeta(other);
+            displayTitle = meta?.name || displayTitle;
+            displayPhoto = meta?.photo || displayPhoto;
+          }
+        }
+
         const row = document.createElement('div'); row.className='convo';
-        row.innerHTML = `<div class="avatar">${c.photo? `<img src="${c.photo}">`:''}</div>
-          <div><div class="name">${c.title||'Pogovor'}</div><div class="hint">${c.lastMsg||''}</div></div>
-          <span class="spacer"></span>`;
+        row.innerHTML = `
+          <div class="avatar">${displayPhoto? `<img src="${displayPhoto}">`:''}</div>
+          <div><div class="name">${displayTitle}</div><div class="hint">${c.lastMsg||''}</div></div>
+          <span class="spacer"></span>
+        `;
         const heart = document.createElement('button'); heart.className='heart'; heart.innerHTML='❤️';
         heart.classList.toggle('active', !!c.partnerAccess);
         heart.addEventListener('click', async (e)=>{
@@ -803,21 +835,21 @@ function waitForListener(qRef, onFirst, label = '') {
         row.appendChild(heart);
         row.addEventListener('click', ()=> openChat(c.id, c));
         convosEl.appendChild(row);
-      });
+      }
     }, (err)=>{
       console.error('conversations snapshot error:', err);
       toast('Napaka pri branju pogovorov (pravila ali indeks).');
     });
   }
 
-  // --- Chat (z imenom/avatarem v skupinah) ---
+  // --- Chat (predogledi za share + slike, direct header) ---
   const chatModal = $('chatModal'); 
   const chatBody = $('chatBody');
   let msgsUnsub = null; 
   let currentConvoId = null;
   let currentConvoData = null;
 
-  function messageBubbleHTML(msg, meUid, showHeader, meta) {
+  function messageBubbleHTML(msg, meUid, showHeader, meta, extra = {}) {
     const mine = msg.by === meUid;
     const header = showHeader && !mine
       ? `
@@ -828,14 +860,37 @@ function waitForListener(qRef, onFirst, label = '') {
       `
       : '';
 
-    const bodyText = msg.text || (msg.type==='share' ? `🔗 Deljena objava: ${msg.postId}` : '[neznano]');
+    let bodyHTML = '';
+
+    if (msg.type === 'image' && msg.imageURL) {
+      bodyHTML = `
+        <a href="${msg.imageURL}" target="_blank" rel="noopener">
+          <img src="${msg.imageURL}" alt="slika" />
+        </a>
+      `;
+    } else if (msg.type === 'share' && msg.postId) {
+      const p = extra.post || {};
+      const cap = p?.caption ? `<div class="hint" style="margin-top:6px">${p.caption}</div>` : '';
+      const img = p?.mediaURL ? `<img src="${p.mediaURL}" alt="objava" />` : '';
+      bodyHTML = `
+        <div class="share-card">
+          ${img}
+          ${cap}
+        </div>
+      `;
+    } else {
+      const bodyText = msg.text || '[neznano]';
+      bodyHTML = `<div class="msg-body">${bodyText}</div>`;
+    }
+
     return `
       <div class="msg ${mine ? 'me' : ''}">
         ${header}
-        <div class="msg-body">${bodyText}</div>
+        ${bodyHTML}
       </div>
     `;
   }
+
   function participantsOf(convo) {
     const arr = Array.isArray(convo?.participants) ? convo.participants : [];
     return arr.filter(Boolean);
@@ -849,9 +904,26 @@ function waitForListener(qRef, onFirst, label = '') {
     currentConvoId = id; 
     currentConvoData = data || currentConvoData || {};
     chatBody.innerHTML='';
-    if ($('chatTitle')) $('chatTitle').textContent = currentConvoData?.title || 'Pogovor';
-    if ($('chatHeart')) $('chatHeart').classList.toggle('active', !!currentConvoData?.partnerAccess);
     chatModal.classList.add('active');
+
+    // glava: direct → pokaži ime + avatar sogovornika
+    (async ()=>{
+      const titleEl = $('chatTitle');
+      const titleAva = document.getElementById('chatTitleAvatar');
+      let titleTxt = currentConvoData?.title || 'Pogovor';
+      let photoUrl = '';
+      if (currentConvoData?.direct && Array.isArray(currentConvoData.participants)) {
+        const other = currentConvoData.participants.find(u=>u!==me.uid);
+        if (other) {
+          const meta = await getUserMeta(other);
+          titleTxt = meta?.name || titleTxt;
+          photoUrl = meta?.photo || '';
+        }
+      }
+      if (titleEl) titleEl.textContent = titleTxt;
+      if (titleAva && photoUrl) titleAva.src = photoUrl;
+      if ($('chatHeart')) $('chatHeart').classList.toggle('active', !!currentConvoData?.partnerAccess);
+    })();
 
     if(msgsUnsub) msgsUnsub();
 
@@ -867,9 +939,17 @@ function waitForListener(qRef, onFirst, label = '') {
         const group = isGroup(currentConvoData);
         chatBody.innerHTML='';
 
+        // prefetch users + shared posts
         const uids = new Set();
-        qs.forEach(m => uids.add(m.data().by));
+        const shareIds = new Set();
+        qs.forEach(m => {
+          const d = m.data();
+          if (d.by) uids.add(d.by);
+          if (d.type === 'share' && d.postId) shareIds.add(d.postId);
+        });
         await Promise.all([...uids].map(uid => getUserMeta(uid)));
+        const postsArr = await Promise.all([...shareIds].map(pid => getPost(pid)));
+        const postsById = Object.fromEntries(postsArr.filter(Boolean).map(p=>[p.id, p]));
 
         qs.forEach(m=>{
           const msg = m.data();
@@ -877,7 +957,8 @@ function waitForListener(qRef, onFirst, label = '') {
             ? { name: msg.authorName, photo: msg.authorPhoto }
             : _userMetaCache.get(msg.by);
 
-          const html = messageBubbleHTML(msg, me.uid, group, meta);
+          const extra = msg.type === 'share' && msg.postId ? { post: postsById[msg.postId] } : {};
+          const html = messageBubbleHTML(msg, me.uid, group, meta, extra);
           const wrapper = document.createElement('div');
           wrapper.innerHTML = html;
           chatBody.appendChild(wrapper.firstElementChild);
@@ -932,22 +1013,110 @@ function waitForListener(qRef, onFirst, label = '') {
     toast(add? 'Dostop omogočen' : 'Dostop onemogočen');
   });
 
+  // --- UI za pošiljanje slik v chatu (📎) ---
+  (function ensureImageSendUI(){
+    const bar = document.querySelector('.chat-input');
+    if (!bar) return;
+
+    if (!document.getElementById('chatFile')) {
+      const file = document.createElement('input');
+      file.type = 'file';
+      file.accept = 'image/*';
+      file.id = 'chatFile';
+      file.style.display = 'none';
+      bar.appendChild(file);
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.id = 'chatSendImage';
+      btn.textContent = '📎';
+      btn.title = 'Pošlji sliko';
+      bar.appendChild(btn);
+
+      btn.addEventListener('click', ()=> file.click());
+
+      file.addEventListener('change', async ()=>{
+        const f = file.files?.[0];
+        if (!f || !currentConvoId) return;
+        try{
+          toast('Nalagam sliko…');
+          const dest = `users/${me.uid}/chat/${currentConvoId}/${Date.now()}_${f.name}`;
+          const imageURL = await uploadFile(f, dest);
+
+          await addDoc(collection(db,'conversations', currentConvoId, 'msgs'), {
+            type: 'image',
+            imageURL,
+            by: me.uid,
+            authorName: myProfile?.username || me.displayName || me.email?.split('@')?.[0] || 'Uporabnik',
+            authorPhoto: myProfile?.photoURL || me.photoURL || '',
+            createdAt: serverTimestamp()
+          });
+
+          await updateDoc(doc(db,'conversations', currentConvoId), {
+            lastMsg: '📷 slika',
+            updatedAt: serverTimestamp(),
+            msgCount: increment(1)
+          });
+          file.value='';
+          toast('Slika poslana ✅');
+        }catch(e){
+          console.error(e); toast('Slike ni uspelo poslati');
+        }
+      });
+    }
+  })();
+
   const convFilterEl = $('convFilter'); if (convFilterEl) convFilterEl.addEventListener('input', loadConversations);
   const convSortEl = $('convSort'); if (convSortEl) convSortEl.addEventListener('change', loadConversations);
 
+  // --- NOV KLEPET: direct (1 oseba) ali group (>1) ---
   const btnNewConvo = $('btnNewConvo');
   if (btnNewConvo) btnNewConvo.addEventListener('click', async ()=>{
-    const uname = prompt('Vnesi username prijatelja (ali več, loči z vejico)'); if(!uname) return;
+    const uname = prompt('Vnesi username (eden ali več, loči z vejico)'); 
+    if(!uname) return;
+
     const usernames = uname.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
     const ids = [];
     for(const u of usernames){
-      const ds = await getDoc(doc(db,'usernames', u)); if(ds.exists()) ids.push(ds.data().uid);
+      const ds = await getDoc(doc(db,'usernames', u)); 
+      if(ds.exists()) ids.push(ds.data().uid);
     }
     if(!ids.length){ toast('Uporabnika ni mogoče najti.'); return; }
-    const title = prompt('Naslov pogovora/grupe:') || 'Pogovor';
+
+    // direct: 1 sogovornik
+    if (ids.length === 1) {
+      const existing = await getDocs(
+        query(
+          collection(db,'conversations'),
+          where('direct','==', true),
+          where('participants','array-contains', me.uid)
+        )
+      );
+      let found = null;
+      existing.forEach(d=>{
+        const c=d.data();
+        if(Array.isArray(c.participants) && c.participants.includes(ids[0])) found={id:d.id,data:c};
+      });
+      if(found){ openChat(found.id, found.data); return; }
+
+      const ref = await addDoc(collection(db,'conversations'), {
+        participants: [me.uid, ids[0]],
+        direct: true,
+        partnerAccess: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        msgCount: 0
+      });
+      openChat(ref.id, { direct:true, participants:[me.uid, ids[0]] });
+      return;
+    }
+
+    // group
+    const title = prompt('Naslov grupe:') || 'Pogovor';
     const ref = await addDoc(collection(db,'conversations'), {
       participants: arrayUnion(me.uid, ...ids),
       title,
+      direct: false,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       msgCount: 0,
@@ -981,7 +1150,9 @@ function waitForListener(qRef, onFirst, label = '') {
   // ------- CREATE: objava & zgodba -------
   document.querySelectorAll('.tab').forEach(t=> t.addEventListener('click', ()=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
-    const mode=t.getAttribute('data-mode'); if ($('postForm')) $('postForm').style.display = (mode==='post')?'block':'none'; if ($('storyForm')) $('storyForm').style.display=(mode==='story')?'block':'none';
+    const mode=t.getAttribute('data-mode'); 
+    if ($('postForm')) $('postForm').style.display = (mode==='post')?'block':'none'; 
+    if ($('storyForm')) $('storyForm').style.display=(mode==='story')?'block':'none';
   }));
 
   const btnPublishPost = $('btnPublishPost');
@@ -1224,79 +1395,77 @@ function waitForListener(qRef, onFirst, label = '') {
     const perm = await Notification.requestPermission(); toast(perm==='granted'? 'Obvestila omogočena' : 'Obvestila onemogočena');
   });
 
- // ------- AUTH & INIT -------
-onAuthStateChanged(auth, async (user) => {
-  if (!user) { location.href = '/'; return; }
-  me = user;
+  // ------- AUTH & INIT -------
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) { location.href='/'; return; }
+    me = user;
 
-  try { await loadMyProfile(); } catch(e){ console.error(e); }
+    try { await loadMyProfile(); } catch(e){ console.error(e); }
 
-  // Pripnemo listenerje in počakamo na prvi odziv
-  const tasks = [];
+    // Pripnemo listenerje in počakamo na prvi odziv
+    const tasks = [];
 
-  // STORIES
-  try {
-    const qStories = query(
-      collection(db, 'stories'),
-      where('visibleTo','array-contains', me.uid),
-      orderBy('createdAt','desc'),
-      limit(30)
-    );
-    tasks.push(waitForListener(qStories, (snap)=>{/* tvoj render je že v renderStories(); */}, 'Stories: pravila ali indeks?'));
-    renderStories(); // tvoja obstoječa funkcija za sprotni render
-  } catch(e){ console.error(e); }
+    // STORIES
+    try {
+      const qStories = query(
+        collection(db, 'stories'),
+        where('visibleTo','array-contains', me.uid),
+        orderBy('createdAt','desc'),
+        limit(30)
+      );
+      tasks.push(waitForListener(qStories, ()=>{}, 'Stories: pravila ali indeks?'));
+      renderStories();
+    } catch(e){ console.error(e); }
 
-  // FEED
-  try {
-    const qFeed = query(
-      collection(db, 'posts'),
-      where('visibleTo','array-contains', me.uid),
-      orderBy('createdAt','desc'),
-      limit(50)
-    );
-    tasks.push(waitForListener(qFeed, ()=>{}, 'Feed: pravila ali indeks?'));
-    renderFeed();
-  } catch(e){ console.error(e); }
+    // FEED
+    try {
+      const qFeed = query(
+        collection(db, 'posts'),
+        where('visibleTo','array-contains', me.uid),
+        orderBy('createdAt','desc'),
+        limit(50)
+      );
+      tasks.push(waitForListener(qFeed, ()=>{}, 'Feed: pravila ali indeks?'));
+      renderFeed();
+    } catch(e){ console.error(e); }
 
-  // CONVERSATIONS
-  try {
-    const qConvos = query(collection(db,'conversations'), where('participants','array-contains', me.uid));
-    tasks.push(waitForListener(qConvos, ()=>{}, 'Pogovori: pravila?'));
-    loadConversations();
-  } catch(e){ console.error(e); }
+    // CONVERSATIONS
+    try {
+      const qConvos = query(collection(db,'conversations'), where('participants','array-contains', me.uid));
+      tasks.push(waitForListener(qConvos, ()=>{}, 'Pogovori: pravila?'));
+      loadConversations();
+    } catch(e){ console.error(e); }
 
-  // TODOS / NOTES / EVENTS / ALBUM (tvoje privatne poti)
-  try {
-    tasks.push(waitForListener(
-      query(collection(db, ...scopePath('todos')),  orderBy('createdAt','desc')),
-      ()=>{}, 'Todos: pravice?'
-    ));
-    tasks.push(waitForListener(
-      query(collection(db, ...scopePath('notes')),  orderBy('createdAt','desc')),
-      ()=>{}, 'Notes: pravice?'
-    ));
-    tasks.push(waitForListener(
-      query(collection(db, ...scopePath('events')), orderBy('date','asc')),
-      ()=>{}, 'Events: pravice?'
-    ));
-    tasks.push(waitForListener(
-      query(collection(db, ...scopePath('album')),  orderBy('createdAt','desc')),
-      ()=>{}, 'Album: pravice?'
-    ));
+    // TODOS / NOTES / EVENTS / ALBUM
+    try {
+      tasks.push(waitForListener(
+        query(collection(db, ...scopePath('todos')),  orderBy('createdAt','desc')),
+        ()=>{}, 'Todos: pravice?'
+      ));
+      tasks.push(waitForListener(
+        query(collection(db, ...scopePath('notes')),  orderBy('createdAt','desc')),
+        ()=>{}, 'Notes: pravice?'
+      ));
+      tasks.push(waitForListener(
+        query(collection(db, ...scopePath('events')), orderBy('date','asc')),
+        ()=>{}, 'Events: pravice?'
+      ));
+      tasks.push(waitForListener(
+        query(collection(db, ...scopePath('album')),  orderBy('createdAt','desc')),
+        ()=>{}, 'Album: pravice?'
+      ));
 
-    // tvoje obstoječe funkcije
-    loadTodos(); loadNotes(); loadEvents(); loadAlbum();
-  } catch(e){ console.error(e); }
+      loadTodos(); loadNotes(); loadEvents(); loadAlbum();
+    } catch(e){ console.error(e); }
 
-  // Počakamo na vse: če je vsaj en ok, pokažemo “Pripravljeno”
-  const results = await Promise.allSettled(tasks);
-  const anyOk = results.some(r => r.status === 'fulfilled' && r.value?.ok);
-  toast(anyOk ? 'Pripravljeno ✨' : 'Napaka pri branju (preveri pravila)');
-});
-
+    const results = await Promise.allSettled(tasks);
+    const anyOk = results.some(r => r.status === 'fulfilled' && r.value?.ok);
+    toast(anyOk ? 'Pripravljeno ✨' : 'Napaka pri branju (preveri pravila)');
+  });
 </script>
 </body>
 </html>
+
 
 
 
