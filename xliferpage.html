@@ -405,13 +405,13 @@
     authDomain: "chater2-fc480.firebaseapp.com",
     databaseURL: "https://chater2-fc480-default-rtdb.firebaseio.com",
     projectId: "chater2-fc480",
-    storageBucket: "chater2-fc480.appspot.com",
+    storageBucket: "chater2-fc480.appspot.com",  // <-- DODANA VEJICA
     messagingSenderId: "623092508370",
     appId: "1:623092508370:web:08cf5d58c6edcfac096f0b",
     measurementId: "G-5W40WP5YEG"
   };
 
-const app = initializeApp(firebaseConfig);
+  const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true, useFetchStreams: false });
   const storage = getStorage(app);
@@ -1192,12 +1192,10 @@ const app = initializeApp(firebaseConfig);
     loadTodos(); loadNotes(); loadEvents(); loadAlbum();
     toast('Pripravljeno ✨');
   });
-  
 </script>
-
-
 </body>
 </html>
+
 
 
 
