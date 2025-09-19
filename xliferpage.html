@@ -422,6 +422,8 @@
     arrayUnion, arrayRemove, getDocs
   } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
   import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
+import { setLogLevel } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+setLogLevel('debug');
 
   // ------- Firebase config (PRAVILEN storageBucket) -------
   const firebaseConfig = {
@@ -1221,6 +1223,7 @@ storageBucket: "chater2-fc480.firebasestorage.app", // točno tako
 </script>
 </body>
 </html>
+
 
 
 
