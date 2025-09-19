@@ -218,16 +218,17 @@
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   // ✅ PRAVILEN bucket
-  const firebaseConfig = {
-    apiKey: "AIzaSyCaKT0CCg1xNJanG4-6Pox2UaH_1rSL3M0",
-    authDomain: "chater2-fc480.firebaseapp.com",
-    databaseURL: "https://chater2-fc480-default-rtdb.firebaseio.com",
-    projectId: "chater2-fc480",
- storageBucket: "chater2-fc480.firebasestorage.app",
-    messagingSenderId: "623092508370",
-    appId: "1:623092508370:web:08cf5d58c6edcfac096f0b",
-    measurementId: "G-5W40WP5YEG"
-  };
+ const firebaseConfig = {
+  apiKey: "AIzaSyCaKT0CCg1xNJanG4-6Pox2UaH_1rSL3M0",
+  authDomain: "chater2-fc480.firebaseapp.com",
+  databaseURL: "https://chater2-fc480-default-rtdb.firebaseio.com",
+  projectId: "chater2-fc480",
+  storageBucket: "chater2-fc480.appspot.com",   // <— VEJICA JE TUKAJ!
+  messagingSenderId: "623092508370",
+  appId: "1:623092508370:web:08cf5d58c6edcfac096f0b",
+  measurementId: "G-5W40WP5YEG"
+};
+
 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
@@ -376,10 +377,43 @@ async function usernameTaken(username){
       logError.textContent = humanAuthError(err);
     }
   });
+
+
+
+    window.diag = async () => {
+  try {
+    console.log('UID:', me?.uid);
+    // 1) test: preberi svojo profilno
+    await getDoc(doc(db, 'profiles', me.uid)).then(s=>console.log('profiles ok:', s.exists()));
+
+    // 2) test: preberi poljubno coupleCode (če obstaja)
+    // zamenjaj 'XL-XXXXX' s kodo, ki jo uporabljaš
+    try { 
+      const cc = await getDoc(doc(db, 'coupleCodes', 'XL-XXXXX'));
+      console.log('coupleCodes read ok:', cc.exists());
+    } catch (e) { console.warn('coupleCodes read ERR:', e.code || e.message); }
+
+    // 3) test: conversations query
+    try {
+      const qs = await getDocs(query(collection(db,'conversations'), where('participants','array-contains', me.uid), limit(1)));
+      console.log('convos ok, count=', qs.size);
+    } catch (e) { console.warn('convos ERR:', e.code || e.message); }
+
+    // 4) test: posts query
+    try {
+      const qs = await getDocs(query(collection(db,'posts'), where('visibleTo','array-contains', me.uid), limit(1)));
+      console.log('posts ok, count=', qs.size);
+    } catch (e) { console.warn('posts ERR:', e.code || e.message); }
+  } catch (e) {
+    console.error('DIAG FATAL:', e);
+  }
+};
+
 </script>
 
 </body>
 </html>
+
 
 
 
