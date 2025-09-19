@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+X<!DOCTYPE html>
 <html lang="sl">
 <head>
   <meta charset="utf-8" />
@@ -217,8 +217,8 @@
     getFirestore, doc, setDoc, collection, query, where, getDocs, getDoc
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-  // ✅ PRAVILEN bucket
- const firebaseConfig = {
+ // ✅ PRAVILEN bucket
+const firebaseConfig = {
   apiKey: "...",
   authDomain: "chater2-fc480.firebaseapp.com",
   databaseURL: "https://chater2-fc480-default-rtdb.firebaseio.com",
@@ -229,9 +229,16 @@
   measurementId: "G-5W40WP5YEG"
 };
 
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-const storage = getStorage(app, "gs://chater2-fc480.appspot.com");
+// ❌ prej si tukaj takoj klical getAuth(app)... ampak app še ni obstajal
+
+// ✅ najprej inicializiraj app
+const app = initializeApp(firebaseConfig);
+
+// ✅ šele nato uporabi app
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app); // dovolj je tako, ni treba dodajat gs://
+
 
   // === UI toggle ===
   const regBtn = document.getElementById('regBtn');
@@ -412,6 +419,7 @@ async function usernameTaken(username){
 
 </body>
 </html>
+
 
 
 
