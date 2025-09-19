@@ -249,7 +249,7 @@ X<!DOCTYPE html>
     authDomain: "chater2-fc480.firebaseapp.com",
     databaseURL: "https://chater2-fc480-default-rtdb.firebaseio.com",
     projectId: "chater2-fc480",
-    storageBucket: "chater2-fc480.appspot.com",   // ← pravilni bucket
+storageBucket: "chater2-fc480.firebasestorage.app", // točno tako
     messagingSenderId: "623092508370",
     appId: "1:623092508370:web:08cf5d58c6edcfac096f0b",
     measurementId: "G-5W40WP5YEG",
@@ -259,7 +259,7 @@ X<!DOCTYPE html>
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
-  const storage = getStorage(app, "gs://chater2-fc480.appspot.com");
+  const storage = getStorage(app, "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js");
 
   /* ========== UI ELEMENTI (če obstajajo) ========== */
   const regBtn = document.getElementById("regBtn");
@@ -495,6 +495,7 @@ X<!DOCTYPE html>
 
 </body>
 </html>
+
 
 
 
